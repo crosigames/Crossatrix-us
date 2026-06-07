@@ -82,11 +82,11 @@
 
     <script>
         // ==========================================
-        // TEXTURE CONFIGURATION (Points to assets/)
+        // TEXTURE CONFIGURATION
         // ==========================================
         const TEXTURE_PATHS = {
             map: 'assets/Map.png',
-            player: 'assets/IMG_0964.webp',
+            player: 'assets/IMG_0964.webp'
         };
 
         const canvas = document.getElementById('gameCanvas');
@@ -96,47 +96,47 @@
         let texturesLoaded = 0;
         const totalTextures = Object.keys(TEXTURE_PATHS).length;
 
-        // Feste virtuelle Map-Größe für exakte Kollisionen
-        const mapWidth = 2400;
-        const mapHeight = 1400;
+        // Natives 16:9 Koordinatensystem für die neue HD-Map
+        const mapWidth = 2560;
+        const mapHeight = 1440;
 
         // ==========================================
-        // COLLISION DATA (Neu angepasst an Map.png)
+        // COLLISION DATA (Präzise berechnet auf 2560x1440)
         // ==========================================
         
-        // Rechteckige Hitboxen (Wände und Grenzen der Cafeteria)
+        // Wände und Raumstrukturen der Cafeteria
         const hitboxes = [
-            // --- Äußere Weltbegrenzung ---
-            { x: 0, y: 0, width: 2400, height: 40 },                  
-            { x: 0, y: 1360, width: 2400, height: 40 },    
-            { x: 0, y: 0, width: 40, height: 1400 },                  
-            { x: 2360, y: 0, width: 40, height: 1400 },    
+            // Außenbegrenzungen
+            { x: 0, y: 0, width: 2560, height: 40 },                  
+            { x: 0, y: 1400, width: 2560, height: 40 },    
+            { x: 0, y: 0, width: 40, height: 1440 },                  
+            { x: 2520, y: 0, width: 40, height: 1440 },    
 
-            // --- Wände & Begrenzungen der Cafeteria ---
-            { x: 920,  y: 40,  width: 715, height: 75 },   // Oberste Deckenkante
-            { x: 800,  y: 115, width: 120, height: 440 },  // Linke Wand (zu MedBay / Upper Engine)
-            { x: 1635, y: 115, width: 120, height: 260 },  // Rechte Wand oben (vor Weapons-Flur)
-            { x: 1755, y: 330, width: 200, height: 45 },   // Obere Kante vom Weapons-Flur
-            { x: 800,  y: 555, width: 235, height: 45 },   // Untere linke Kante (Wand zu Downloads/Flur)
-            { x: 1515, y: 555, width: 240, height: 45 }    // Untere rechte Kante (Wand zu O2)
+            // Cafeteria Raum-Strukturen
+            { x: 1110, y: 40,  width: 535, height: 75 },   // Obere Kante
+            { x: 995,  y: 115, width: 115, height: 260 },  // Schräge Wand links oben
+            { x: 1645, y: 115, width: 115, height: 260 },  // Schräge Wand rechts oben
+            { x: 1760, y: 375, width: 150, height: 50 },   // Oberkante Flur zu Weapons
+            { x: 995,  y: 560, width: 200, height: 50 },   // Untere Wand links (MedBay-Flur)
+            { x: 1550, y: 560, width: 210, height: 50 }    // Untere Wand rechts (O2-Flur)
         ];
 
-        // RUNDE Hitboxen (Exakt zentriert auf den Tischen von Map.png)
+        // Runde Hitboxen für die Tische (Exakt mittig platziert)
         const circleHitboxes = [
-            { cx: 1045, cy: 230, radius: 82 }, // Tisch oben links
-            { cx: 1495, cy: 230, radius: 82 }, // Tisch oben rechts
-            { cx: 1270, cy: 405, radius: 82 }, // Tisch Mitte
-            { cx: 1045, cy: 580, radius: 82 }, // Tisch unten links
-            { cx: 1495, cy: 580, radius: 82 }  // Tisch unten rechts
+            { cx: 1202, cy: 310, radius: 88 }, // Tisch oben links
+            { cx: 1548, cy: 310, radius: 88 }, // Tisch oben rechts
+            { cx: 1375, cy: 500, radius: 88 }, // Tisch Mitte
+            { cx: 1202, cy: 695, radius: 88 }, // Tisch unten links
+            { cx: 1548, cy: 695, radius: 88 }  // Tisch unten rechts
         ];
 
         // Spieler-Setup
         let player = {
-            x: 1245, 
-            y: 480, // Startet direkt unter dem mittleren Tisch
+            x: 1345, 
+            y: 600, // Spawnt direkt unter dem zentralen Tisch
             width: 55,  
             height: 70, 
-            speed: 5.5,
+            speed: 6,
             vx: 0,
             vy: 0,
             facingRight: true
@@ -145,7 +145,7 @@
         let camera = { x: 0, y: 0 };
         const keys = {};
 
-        // Touch-Steuerung Variablen
+        // Touch-Steuerung
         const joystickZone = document.getElementById('joystick-zone');
         const joystickKnob = document.getElementById('joystick-knob');
         let joystickActive = false;
@@ -161,7 +161,7 @@
                     if (texturesLoaded === totalTextures) initGame();
                 };
                 textures[key].onerror = () => {
-                    console.warn(`Datei fehlt im Ordner assets/: ${TEXTURE_PATHS[key]}`);
+                    console.warn(`Fehler beim Laden von: ${TEXTURE_PATHS[key]}`);
                     texturesLoaded++;
                     if (texturesLoaded === totalTextures) initGame();
                 };
@@ -171,7 +171,7 @@
         function resizeCanvas() {
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
-            ctx.imageSmoothingEnabled = false; 
+            ctx.imageSmoothingEnabled = true; // Höhere Qualität für die scharfe Map
         }
         window.addEventListener('resize', resizeCanvas);
         resizeCanvas();
@@ -179,7 +179,7 @@
         window.addEventListener('keydown', e => keys[e.key.toLowerCase()] = true);
         window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
 
-        // Mobile Joystick Logik
+        // Joystick Event-Handling
         joystickZone.addEventListener('touchstart', e => {
             joystickActive = true;
             const rect = joystickZone.getBoundingClientRect();
@@ -212,13 +212,13 @@
             player.vy = 0;
         });
 
-        // Use Button Action
+        // Use-Interaktion
         document.getElementById('action-btn').addEventListener('touchstart', (e) => {
             e.preventDefault();
-            console.log("USE triggered");
+            console.log("USE ausgelöst");
         });
 
-        // Kollisions-Prüfung: Rechteck gegen Rechteck (AABB)
+        // AABB Kollisionsprüfung
         function checkRectCollision(rect1, rect2) {
             return rect1.x < rect2.x + rect2.width &&
                    rect1.x + rect1.width > rect2.x &&
@@ -226,7 +226,7 @@
                    rect1.y + rect1.height > rect2.y;
         }
 
-        // Kollisions-Prüfung: Rechteck (Spieler) gegen Kreis (Tisch)
+        // Kreiskollision auflösen
         function resolveCircleCollision(playerObj, circle) {
             let closestX = Math.max(playerObj.x, Math.min(circle.cx, playerObj.x + playerObj.width));
             let closestY = Math.max(playerObj.y, Math.min(circle.cy, playerObj.y + playerObj.height));
@@ -240,7 +240,6 @@
                 if (distance === 0) return;
 
                 let overlap = circle.radius - distance;
-                
                 let dirX = distanceX / distance;
                 let dirY = distanceY / distance;
 
@@ -262,7 +261,7 @@
                 player.facingRight = player.vx > 0;
             }
 
-            // X-Achse bewegen & Wände prüfen
+            // X-Achse
             player.x += player.vx;
             for (let box of hitboxes) {
                 if (checkRectCollision(player, box)) {
@@ -271,7 +270,7 @@
                 }
             }
 
-            // Y-Achse bewegen & Wände prüfen
+            // Y-Achse
             player.y += player.vy;
             for (let box of hitboxes) {
                 if (checkRectCollision(player, box)) {
@@ -280,12 +279,12 @@
                 }
             }
 
-            // Tische prüfen (Kreiskollision)
+            // Kreis-Kollision anwenden
             for (let circle of circleHitboxes) {
                 resolveCircleCollision(player, circle);
             }
 
-            // Kamera zentrieren
+            // Kamera-Fokus
             camera.x = player.x + player.width / 2 - canvas.width / 2;
             camera.y = player.y + player.height / 2 - canvas.height / 2;
 
@@ -304,7 +303,7 @@
             ctx.save();
             ctx.translate(-camera.x, -camera.y);
 
-            // 1. Map zeichnen
+            // 1. Render Map
             if (textures.map && textures.map.complete && textures.map.naturalWidth !== 0) {
                 ctx.drawImage(textures.map, 0, 0, mapWidth, mapHeight);
             } else {
@@ -312,7 +311,7 @@
                 ctx.fillRect(0, 0, mapWidth, mapHeight);
             }
 
-            // --- HITBOXEN-VISUALISIERUNG ---
+            // --- HITBOX VISUALISIERUNG ---
             ctx.fillStyle = 'rgba(255, 0, 0, 0.4)';
             for (let box of hitboxes) {
                 ctx.fillRect(box.x, box.y, box.width, box.height);
@@ -323,7 +322,7 @@
                 ctx.fill();
             }
 
-            // 2. Charakter zeichnen
+            // 2. Render Spieler
             ctx.save();
             ctx.translate(player.x + player.width / 2, player.y + player.height / 2);
             
