@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Among Us Clone - Scaled Down Player</title>
+    <title>Among Us Clone - Security System</title>
     <style>
         * {
             box-sizing: border-box;
@@ -49,20 +49,16 @@
             position: absolute;
             bottom: 50px;
             right: 50px;
-            width: 80px;
-            height: 80px;
-            background: rgba(180, 180, 180, 0.4);
-            border: 3px solid #fff;
+            width: 90px;
+            height: 90px;
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
             border-radius: 50%;
-            color: white;
-            font-weight: bold;
-            font-size: 16px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
             touch-action: none;
-            box-shadow: 0 0 10px rgba(0,0,0,0.5);
+            box-shadow: 0 0 15px rgba(0,0,0,0.6);
             z-index: 10;
+            display: block;
         }
     </style>
 </head>
@@ -74,7 +70,7 @@
         <div id="joystick-knob"></div>
     </div>
     
-    <div id="action-btn">USE</div>
+    <div id="action-btn"></div>
 
     <script>
         const canvas = document.getElementById('gameCanvas');
@@ -84,6 +80,7 @@
         const mapHeight = 1080;
         const wallThickness = 15;
 
+        // Wände
         const wallLines = [
             { "x1": 1206, "y1": 34,  "x2": 1333, "y2": 165 },
             { "x1": 1326, "y1": 146, "x2": 1324, "y2": 215 },
@@ -240,7 +237,7 @@
             { "x1": 1203, "y1": 704, "x2": 1364, "y2": 701 },
             { "x1": 1363, "y1": 704, "x2": 1401, "y2": 666 },
             { "x1": 1397, "y1": 658, "x2": 1402, "y2": 517 },
-            { "x1": 1400, "y1": 519, "x2": 1369, "y2": 515 },
+            { "x1": 1402, "y1": 517, "x2": 1369, "y2": 515 },
             { "x1": 1364, "y1": 516, "x2": 1364, "y2": 558 },
             { "x1": 1365, "y1": 558, "x2": 1248, "y2": 562 },
             { "x1": 1251, "y1": 567, "x2": 1246, "y2": 522 },
@@ -287,57 +284,77 @@
             { "x1": 1431, "y1": 211, "x2": 1326, "y2": 211 }
         ];
 
-        const tableOffsetX = 20;
-        const tableOffsetY = -110;
-        const tableFactorX = 0.71;
-        const tableFactorY = 0.77;
+        // Cafeteria-Tische
         const pivotX = 1062;
         const pivotY = 354;
-
-        const baseCircleHitboxes = [
-            { cx: 917,  cy: 218, radius: 52 },
-            { cx: 1208, cy: 218, radius: 52 },
-            { cx: 1062, cy: 354, radius: 52 },
-            { cx: 917,  cy: 491, radius: 52 },
-            { cx: 1208, cy: 491, radius: 52 }
+        const finalTables = [
+            { cx: pivotX + (917 - pivotX) * 0.71 + 20, cy: pivotY + (218 - pivotY) * 0.77 - 110, radius: 52 * 0.77 },
+            { cx: pivotX + (1208 - pivotX) * 0.71 + 20, cy: pivotY + (218 - pivotY) * 0.77 - 110, radius: 52 * 0.77 },
+            { cx: pivotX + (1062 - pivotX) * 0.71 + 20, cy: pivotY + (354 - pivotY) * 0.77 - 110, radius: 52 * 0.77 },
+            { cx: pivotX + (917 - pivotX) * 0.71 + 20, cy: pivotY + (491 - pivotY) * 0.77 - 110, radius: 52 * 0.77 },
+            { cx: pivotX + (1208 - pivotX) * 0.71 + 20, cy: pivotY + (491 - pivotY) * 0.77 - 110, radius: 52 * 0.77 }
         ];
 
-        const finalTables = baseCircleHitboxes.map(circle => {
-            let rcx = pivotX + (circle.cx - pivotX) * tableFactorX + tableOffsetX;
-            let rcy = pivotY + (circle.cy - pivotY) * tableFactorY + tableOffsetY;
-            let rRad = circle.radius * Math.max(tableFactorX, tableFactorY);
-            return { cx: rcx, cy: rcy, radius: rRad };
-        });
+        // Security Screen Terminal Setup
+        const securityScreen = {
+            cx: 300, 
+            cy: 450, 
+            radius: 35, 
+            interactRange: 60 
+        };
 
+        // Kameras Definition (Position + Sichtbereich)
+        const cameras = [
+            { id: "Cafeteria", x: 1060, y: 150, angle: Math.PI / 2, fov: Math.PI / 3, range: 180 },
+            { id: "Weapons", x: 1500, y: 200, angle: Math.PI, fov: Math.PI / 3, range: 160 },
+            { id: "Navigation", x: 1820, y: 460, angle: Math.PI * 1.1, fov: Math.PI / 2, range: 170 },
+            { id: "Corridor_Left", x: 600, y: 450, angle: 0, fov: Math.PI / 3, range: 190 }
+        ];
+
+        // Texturen Laden
         const textures = {};
         const sources = {
             map: 'assets/Map.png',
-            player: 'assets/IMG_0964.webp'
+            player: 'assets/IMG_0964.webp',
+            useBtn: 'assets/use.webp',
+            useSecBtn: 'assets/use_sec.webp'
         };
         
+        let loadedImages = 0;
+        const totalImages = Object.keys(sources).length;
         for (let key in sources) {
             textures[key] = new Image();
             textures[key].src = sources[key];
+            textures[key].onload = () => {
+                loadedImages++;
+                if (loadedImages === totalImages) {
+                    updateButtonTexture(false);
+                }
+            };
         }
 
-        // Spielerwerte auf exakt die Hälfte skaliert
+        // Spieler-Objekt (halbiert)
         let player = {
             x: 1060, 
             y: 260,  
-            radius: 10,   // Von 20 auf 10 halbiert für schmale Korridore
-            width: 21,    // Von 42 auf 21 halbiert
-            height: 27,   // Von 54 auf 27 halbiert
-            speed: 5,
+            radius: 10,   
+            width: 21,    
+            height: 27,   
+            speed: 4.5,
             vx: 0,
             vy: 0,
             facingRight: true
         };
 
         let camera = { x: 0, y: 0 };
+        let isViewingSecurity = false; 
+        let nearSecurity = false;      
         const keys = {};
 
+        // UI Elemente
         const joystickZone = document.getElementById('joystick-zone');
         const joystickKnob = document.getElementById('joystick-knob');
+        const actionBtn = document.getElementById('action-btn');
         let joystickActive = false;
         let joystickStartX = 0, joystickStartY = 0;
 
@@ -348,10 +365,20 @@
         window.addEventListener('resize', resizeCanvas);
         resizeCanvas();
 
+        function updateButtonTexture(isSec) {
+            if (isSec) {
+                actionBtn.style.backgroundImage = `url('${sources.useSecBtn}')`;
+            } else {
+                actionBtn.style.backgroundImage = `url('${sources.useBtn}')`;
+            }
+        }
+
+        // Input Handling
         window.addEventListener('keydown', e => keys[e.key.toLowerCase()] = true);
         window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
 
         joystickZone.addEventListener('touchstart', e => {
+            if (isViewingSecurity) return;
             joystickActive = true;
             const rect = joystickZone.getBoundingClientRect();
             joystickStartX = rect.left + rect.width / 2;
@@ -359,7 +386,7 @@
         });
 
         window.addEventListener('touchmove', e => {
-            if (!joystickActive) return;
+            if (!joystickActive || isViewingSecurity) return;
             const touch = e.touches[0];
             let dx = touch.clientX - joystickStartX;
             let dy = touch.clientY - joystickStartY;
@@ -376,33 +403,45 @@
             player.vy = (dy / maxRadius) * player.speed;
         });
 
-        window.addEventListener('touchend', () => {
+        const endJoystick = () => {
             joystickActive = false;
             joystickKnob.style.transform = 'translate(0px, 0px)';
             player.vx = 0;
             player.vy = 0;
+        };
+        window.addEventListener('touchend', endJoystick);
+
+        // Action-Button Logik (Klick auf Screens)
+        actionBtn.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            if (nearSecurity) {
+                isViewingSecurity = !isViewingSecurity;
+                if (isViewingSecurity) {
+                    endJoystick();
+                    joystickZone.style.display = 'none';
+                } else {
+                    joystickZone.style.display = 'flex';
+                }
+            }
         });
 
+        // Kollisionen
         function resolveLineCollision(p, line) {
             let dx = line.x2 - line.x1;
             let dy = line.y2 - line.y1;
             let lenSq = dx * dx + dy * dy;
             if (lenSq === 0) return;
 
-            let t = ((p.x - line.x1) * dx + (p.y - line.y1) * dy) / lenSq;
-            t = Math.max(0, Math.min(1, t));
-
+            let t = Math.max(0, Math.min(1, ((p.x - line.x1) * dx + (p.y - line.y1) * dy) / lenSq));
             let closestX = line.x1 + t * dx;
             let closestY = line.y1 + t * dy;
 
             let distVecX = p.x - closestX;
             let distVecY = p.y - closestY;
             let distance = Math.sqrt(distVecX * distVecX + distVecY * distVecY);
-
             let minDist = p.radius + (wallThickness / 2);
 
-            if (distance < minDist) {
-                if (distance === 0) return;
+            if (distance < minDist && distance !== 0) {
                 let overlap = minDist - distance;
                 p.x += (distVecX / distance) * overlap;
                 p.y += (distVecY / distance) * overlap;
@@ -415,8 +454,7 @@
             let distance = Math.sqrt(dx * dx + dy * dy);
             let minDist = p.radius + circle.radius;
 
-            if (distance < minDist) {
-                if (distance === 0) return;
+            if (distance < minDist && distance !== 0) {
                 let overlap = minDist - distance;
                 p.x += (dx / distance) * overlap;
                 p.y += (dy / distance) * overlap;
@@ -424,6 +462,17 @@
         }
 
         function update() {
+            // Wenn man durch die Kameras schaut, friert die Bewegung ein
+            if (isViewingSecurity) {
+                // Ermöglicht das Verlassen der Kameras via Tastatur
+                if (keys['e'] || keys['escape']) {
+                    isViewingSecurity = false;
+                    joystickZone.style.display = 'flex';
+                    keys['e'] = false; keys['escape'] = false;
+                }
+                return;
+            }
+
             if (keys['w'] || keys['arrowup']) player.vy = -player.speed;
             else if (keys['s'] || keys['arrowdown']) player.vy = player.speed;
             else if (!joystickActive) player.vy = 0;
@@ -439,34 +488,146 @@
             player.x += player.vx;
             player.y += player.vy;
 
-            for (let line of wallLines) {
-                resolveLineCollision(player, line);
-            }
-
-            for (let table of finalTables) {
-                resolveCircleCollision(player, table);
-            }
+            // Kollisionsabfragen
+            for (let line of wallLines) resolveLineCollision(player, line);
+            for (let table of finalTables) resolveCircleCollision(player, table);
+            resolveCircleCollision(player, { cx: securityScreen.cx, cy: securityScreen.cy, radius: securityScreen.radius });
 
             if (player.x < 0) player.x = 0;
             if (player.y < 0) player.y = 0;
             if (player.x > mapWidth) player.x = mapWidth;
             if (player.y > mapHeight) player.y = mapHeight;
 
+            // Check ob nah genug an Security Screens für Button-Wechsel
+            let distToSec = Math.sqrt((player.x - securityScreen.cx) ** 2 + (player.y - securityScreen.cy) ** 2);
+            let currentlyNear = distToSec <= (player.radius + securityScreen.interactRange);
+            
+            if (currentlyNear !== nearSecurity) {
+                nearSecurity = currentlyNear;
+                updateButtonTexture(nearSecurity);
+            }
+
+            if (keys['e'] && nearSecurity) {
+                isViewingSecurity = !isViewingSecurity;
+                joystickZone.style.display = isViewingSecurity ? 'none' : 'flex';
+                keys['e'] = false;
+            }
+
+            // Kamera-Verfolgung
             camera.x = player.x - canvas.width / 2;
             camera.y = player.y - canvas.height / 2;
+            camera.x = Math.max(0, Math.min(mapWidth - canvas.width, camera.x));
+            camera.y = Math.max(0, Math.min(mapHeight - canvas.height, camera.y));
+        }
 
-            if (camera.x < 0) camera.x = 0;
-            if (camera.y < 0) camera.y = 0;
-            if (camera.x > mapWidth - canvas.width) camera.x = Math.max(0, mapWidth - canvas.width);
-            if (camera.y > mapHeight - canvas.height) camera.y = Math.max(0, mapHeight - canvas.height);
+        // Zeichne lila Kamera-Sichtfelder
+        function drawCameraFOV(cam) {
+            ctx.fillStyle = 'rgba(168, 85, 247, 0.15)'; 
+            ctx.strokeStyle = 'rgba(168, 85, 247, 0.4)';
+            ctx.lineWidth = 2;
+
+            ctx.beginPath();
+            ctx.moveTo(cam.x, cam.y);
+            ctx.arc(cam.x, cam.y, cam.range, cam.angle - cam.fov / 2, cam.angle + cam.fov / 2);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+
+            // Kleines Kamera-Symbol/Punkt
+            ctx.fillStyle = '#a855f7';
+            ctx.beginPath();
+            ctx.arc(cam.x, cam.y, 6, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        // Grid-Ansicht für Security-Modus
+        function drawSecurityMonitorSystem() {
+            ctx.fillStyle = '#050508';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            const padding = 20;
+            const w = (canvas.width - padding * 3) / 2;
+            const h = (canvas.height - padding * 3) / 2;
+
+            const gridPositions = [
+                { x: padding, y: padding },
+                { x: padding * 2 + w, y: padding },
+                { x: padding, y: padding * 2 + h },
+                { x: padding * 2 + w, y: padding * 2 + h }
+            ];
+
+            cameras.forEach((cam, i) => {
+                let pos = gridPositions[i];
+                ctx.save();
+                
+                // Erstelle Viewport für den einzelnen Screen
+                ctx.beginPath();
+                ctx.rect(pos.x, pos.y, w, h);
+                ctx.clip();
+
+                // Rendere Map aus Sicht der Kamera zentriert
+                ctx.translate(pos.x + w / 2 - cam.x, pos.y + h / 2 - cam.y);
+
+                if (textures.map && textures.map.complete) {
+                    ctx.drawImage(textures.map, 0, 0, mapWidth, mapHeight);
+                }
+
+                // Zeichne lila Kegel auch im Monitor
+                drawCameraFOV(cam);
+
+                // Zeichne Spieler, falls im Blickfeld dieser Kamera
+                let dx = player.x - cam.x;
+                let dy = player.y - cam.y;
+                let dist = Math.sqrt(dx*dx + dy*dy);
+                if (dist <= cam.range) {
+                    let angleToPlayer = Math.atan2(dy, dx);
+                    let diff = Math.atan2(Math.sin(angleToPlayer - cam.angle), Math.cos(angleToPlayer - cam.angle));
+                    if (Math.abs(diff) <= cam.fov / 2) {
+                        ctx.save();
+                        ctx.translate(player.x, player.y);
+                        if (!player.facingRight) ctx.scale(-1, 1);
+                        if (textures.player && textures.player.complete) {
+                            ctx.drawImage(textures.player, -player.width/2, -player.height/2, player.width, player.height);
+                        }
+                        ctx.restore();
+                    }
+                }
+
+                ctx.restore();
+
+                // Rahmen & Text für die Monitore
+                ctx.strokeStyle = '#3b82f6';
+                ctx.lineWidth = 3;
+                ctx.strokeRect(pos.x, pos.y, w, h);
+
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+                ctx.fillRect(pos.x + 10, pos.y + 10, 140, 30);
+                ctx.fillStyle = '#00ffcc';
+                ctx.font = 'bold 14px monospace';
+                ctx.fillText(`CAM: ${cam.id}`, pos.x + 20, pos.y + 30);
+            });
+
+            // Hinweis zum Verlassen oben mittig anzeigen
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+            ctx.fillRect(canvas.width / 2 - 150, canvas.height - 50, 300, 40);
+            ctx.fillStyle = '#fff';
+            ctx.font = '14px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('Tap USE Button to Exit Security', canvas.width / 2, canvas.height - 25);
+            ctx.textAlign = 'left'; // Reset
         }
 
         function draw() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            if (isViewingSecurity) {
+                drawSecurityMonitorSystem();
+                return;
+            }
 
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
             ctx.save();
             ctx.translate(-camera.x, -camera.y);
 
+            // Map
             if (textures.map && textures.map.complete && textures.map.naturalWidth !== 0) {
                 ctx.drawImage(textures.map, 0, 0, mapWidth, mapHeight);
             } else {
@@ -474,23 +635,26 @@
                 ctx.fillRect(0, 0, mapWidth, mapHeight);
             }
 
-            ctx.strokeStyle = 'rgba(255, 0, 50, 0.5)';
+            // Zeichne Kamera-Sichtfelder auf der echten Map
+            cameras.forEach(cam => drawCameraFOV(cam));
+
+            // Security Screens Terminal (Interaktives Objekt)
+            ctx.fillStyle = nearSecurity ? 'rgba(0, 255, 200, 0.4)' : 'rgba(59, 130, 246, 0.4)';
+            ctx.strokeStyle = nearSecurity ? '#00ffcc' : '#3b82f6';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.arc(securityScreen.cx, securityScreen.cy, securityScreen.radius, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+
+            // Hitbox-Wände (Optional zur Debugging-Visualisierung)
+            ctx.strokeStyle = 'rgba(255, 0, 50, 0.15)';
             ctx.lineWidth = wallThickness;
-            ctx.lineCap = 'round';
             for (let line of wallLines) {
-                ctx.beginPath();
-                ctx.moveTo(line.x1, line.y1);
-                ctx.lineTo(line.x2, line.y2);
-                ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(line.x1, line.y1); ctx.lineTo(line.x2, line.y2); ctx.stroke();
             }
 
-            ctx.fillStyle = 'rgba(0, 100, 255, 0.35)';
-            for (let table of finalTables) {
-                ctx.beginPath();
-                ctx.arc(table.cx, table.cy, table.radius, 0, Math.PI * 2);
-                ctx.fill();
-            }
-
+            // Spieler rendern
             ctx.save();
             ctx.translate(player.x, player.y);
             if (!player.facingRight) ctx.scale(-1, 1);
