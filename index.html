@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Among Us Clone - Security System</title>
+    <title>Among Us Clone - Tech Edition</title>
     <style>
         * {
             box-sizing: border-box;
@@ -45,20 +45,58 @@
             background: rgba(255, 255, 255, 0.5);
             border-radius: 50%;
         }
+        /* Button ist jetzt rahmenlos und zeigt nur das reine Asset */
         #action-btn {
             position: absolute;
             bottom: 50px;
             right: 50px;
             width: 90px;
             height: 90px;
-            background-size: cover;
+            background-size: contain;
             background-position: center;
             background-repeat: no-repeat;
-            border-radius: 50%;
             touch-action: none;
-            box-shadow: 0 0 15px rgba(0,0,0,0.6);
             z-index: 10;
             display: block;
+        }
+        /* Debug UI */
+        #debug-ui {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.85);
+            color: #00ffcc;
+            padding: 12px;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 11px;
+            z-index: 100;
+            max-width: 320px;
+            display: none;
+            border: 1px solid #00ffcc;
+        }
+        #debug-json {
+            width: 100%;
+            height: 80px;
+            background: #111;
+            color: #fff;
+            border: 1px solid #333;
+            margin-top: 5px;
+            font-size: 10px;
+            white-space: pre;
+            overflow-x: scroll;
+        }
+        #debug-toggle-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(255,0,0,0.6);
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            font-family: monospace;
+            z-index: 100;
+            border-radius: 4px;
         }
     </style>
 </head>
@@ -72,6 +110,16 @@
     
     <div id="action-btn"></div>
 
+    <button id="debug-toggle-btn" onclick="toggleDebugMode()">Debug (Ctrl+M)</button>
+
+    <div id="debug-ui">
+        <div><strong>DEBUG PLACEMENT MODE</strong></div>
+        <div style="margin: 4px 0;">• Click Map: Cycle & Place Cams (1-4)</div>
+        <div>• Shift + Click Map: Place Security Screen</div>
+        <div style="margin-top:8px;">Current JSON Data:</div>
+        <textarea id="debug-json" readonly></textarea>
+    </div>
+
     <script>
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
@@ -80,213 +128,121 @@
         const mapHeight = 1080;
         const wallThickness = 15;
 
-        // Wände
+        // Configuration JSON (Kann aus dem Debugger kopiert und hier ersetzt werden)
+        let gameConfig = {
+            "securityScreen": { "cx": 300, "cy": 450, "radius": 35, "interactRange": 60 },
+            "cameras": [
+                { "id": "Cafeteria", "x": 1060, "y": 150, "angle": 1.57, "fov": 1.04, "range": 180 },
+                { "id": "Weapons", "x": 1500, "y": 200, "angle": 3.14, "fov": 1.04, "range": 160 },
+                { "id": "Navigation", "x": 1820, "y": 460, "angle": 3.45, "fov": 1.57, "range": 170 },
+                { "id": "Corridor_Left", "x": 600, "y": 450, "angle": 0, "fov": 1.04, "range": 190 }
+            ]
+        };
+
         const wallLines = [
-            { "x1": 1206, "y1": 34,  "x2": 1333, "y2": 165 },
-            { "x1": 1326, "y1": 146, "x2": 1324, "y2": 215 },
-            { "x1": 1198, "y1": 35,  "x2": 901,  "y2": 33  },
-            { "x1": 944,  "y1": 32,  "x2": 866,  "y2": 109 },
-            { "x1": 859,  "y1": 211, "x2": 860,  "y2": 86  },
-            { "x1": 857,  "y1": 270, "x2": 857,  "y2": 360 },
-            { "x1": 858,  "y1": 368, "x2": 957,  "y2": 471 },
-            { "x1": 958,  "y1": 474, "x2": 1055, "y2": 472 },
-            { "x1": 1121, "y1": 471, "x2": 1215, "y2": 471 },
-            { "x1": 1329, "y1": 358, "x2": 1222, "y2": 466 },
-            { "x1": 1322, "y1": 270, "x2": 1326, "y2": 361 },
-            { "x1": 861,  "y1": 265, "x2": 786,  "y2": 269 },
-            { "x1": 784,  "y1": 274, "x2": 780,  "y2": 317 },
-            { "x1": 783,  "y1": 320, "x2": 845,  "y2": 324 },
-            { "x1": 841,  "y1": 322, "x2": 840,  "y2": 393 },
-            { "x1": 844,  "y1": 397, "x2": 836,  "y2": 420 },
-            { "x1": 840,  "y1": 422, "x2": 908,  "y2": 495 },
-            { "x1": 909,  "y1": 495, "x2": 913,  "y2": 515 },
-            { "x1": 913,  "y1": 516, "x2": 705,  "y2": 523 },
-            { "x1": 707,  "y1": 525, "x2": 663,  "y2": 483 },
-            { "x1": 668,  "y1": 486, "x2": 662,  "y2": 300 },
-            { "x1": 663,  "y1": 293, "x2": 714,  "y2": 291 },
-            { "x1": 717,  "y1": 290, "x2": 716,  "y2": 276 },
-            { "x1": 716,  "y1": 272, "x2": 529,  "y2": 277 },
-            { "x1": 535,  "y1": 274, "x2": 522,  "y2": 344 },
-            { "x1": 521,  "y1": 350, "x2": 473,  "y2": 353 },
-            { "x1": 471,  "y1": 356, "x2": 469,  "y2": 477 },
-            { "x1": 472,  "y1": 479, "x2": 522,  "y2": 476 },
-            { "x1": 523,  "y1": 480, "x2": 523,  "y2": 406 },
-            { "x1": 524,  "y1": 436, "x2": 566,  "y2": 391 },
-            { "x1": 566,  "y1": 390, "x2": 601,  "y2": 391 },
-            { "x1": 608,  "y1": 395, "x2": 634,  "y2": 419 },
-            { "x1": 639,  "y1": 422, "x2": 645,  "y2": 576 },
-            { "x1": 636,  "y1": 580, "x2": 538,  "y2": 584 },
-            { "x1": 532,  "y1": 585, "x2": 527,  "y2": 532 },
-            { "x1": 527,  "y1": 531, "x2": 474,  "y2": 531 },
-            { "x1": 473,  "y1": 536, "x2": 470,  "y2": 634 },
-            { "x1": 473,  "y1": 634, "x2": 471,  "y2": 664 },
-            { "x1": 472,  "y1": 664, "x2": 516,  "y2": 666 },
-            { "x1": 518,  "y1": 665, "x2": 524,  "y2": 735 },
-            { "x1": 530,  "y1": 729, "x2": 658,  "y2": 733 },
-            { "x1": 662,  "y1": 738, "x2": 663,  "y2": 844 },
-            { "x1": 663,  "y1": 845, "x2": 704,  "y2": 849 },
-            { "x1": 705,  "y1": 850, "x2": 704,  "y2": 813 },
-            { "x1": 703,  "y1": 817, "x2": 695,  "y2": 566 },
-            { "x1": 810,  "y1": 696, "x2": 705,  "y2": 692 },
-            { "x1": 809,  "y1": 696, "x2": 807,  "y2": 668 },
-            { "x1": 807,  "y1": 669, "x2": 706,  "y2": 671 },
-            { "x1": 704,  "y1": 588, "x2": 760,  "y2": 584 },
-            { "x1": 762,  "y1": 585, "x2": 766,  "y2": 599 },
-            { "x1": 768,  "y1": 603, "x2": 907,  "y2": 600 },
-            { "x1": 911,  "y1": 602, "x2": 910,  "y2": 610 },
-            { "x1": 913,  "y1": 613, "x2": 865,  "y2": 663 },
-            { "x1": 862,  "y1": 662, "x2": 862,  "y2": 744 },
-            { "x1": 861,  "y1": 747, "x2": 824,  "y2": 790 },
-            { "x1": 825,  "y1": 792, "x2": 768,  "y2": 795 },
-            { "x1": 770,  "y1": 794, "x2": 766,  "y2": 851 },
-            { "x1": 769,  "y1": 853, "x2": 904,  "y2": 850 },
-            { "x1": 904,  "y1": 845, "x2": 901,  "y2": 684 },
-            { "x1": 904,  "y1": 678, "x2": 902,  "y2": 706 },
-            { "x1": 913,  "y1": 727, "x2": 1005, "y2": 646 },
-            { "x1": 1013, "y1": 645, "x2": 1058, "y2": 649 },
-            { "x1": 1059, "y1": 644, "x2": 1059, "y2": 475 },
-            { "x1": 62,   "y1": 930, "x2": 34,   "y2": 916 },
-            { "x1": 855,  "y1": 214, "x2": 523,  "y2": 207 },
-            { "x1": 525,  "y1": 213, "x2": 522,  "y2": 164 },
-            { "x1": 514,  "y1": 156, "x2": 377,  "y2": 156 },
-            { "x1": 381,  "y1": 160, "x2": 348,  "y2": 183 },
-            { "x1": 353,  "y1": 190, "x2": 476,  "y2": 197 },
-            { "x1": 477,  "y1": 197, "x2": 479,  "y2": 301 },
-            { "x1": 478,  "y1": 293, "x2": 335,  "y2": 292 },
-            { "x1": 333,  "y1": 293, "x2": 329,  "y2": 343 },
-            { "x1": 332,  "y1": 342, "x2": 402,  "y2": 351 },
-            { "x1": 406,  "y1": 365, "x2": 402,  "y2": 476 },
-            { "x1": 401,  "y1": 482, "x2": 356,  "y2": 481 },
-            { "x1": 350,  "y1": 484, "x2": 344,  "y2": 393 },
-            { "x1": 343,  "y1": 416, "x2": 281,  "y2": 414 },
-            { "x1": 281,  "y1": 421, "x2": 279,  "y2": 324 },
-            { "x1": 280,  "y1": 330, "x2": 272,  "y2": 329 },
-            { "x1": 280,  "y1": 353, "x2": 241,  "y2": 348 },
-            { "x1": 241,  "y1": 353, "x2": 188,  "y2": 396 },
-            { "x1": 183,  "y1": 398, "x2": 183,  "y2": 414 },
-            { "x1": 184,  "y1": 416, "x2": 237,  "y2": 414 },
-            { "x1": 240,  "y1": 416, "x2": 241,  "y2": 529 },
-            { "x1": 243,  "y1": 533, "x2": 199,  "y2": 533 },
-            { "x1": 198,  "y1": 534, "x2": 197,  "y2": 614 },
-            { "x1": 198,  "y1": 620, "x2": 236,  "y2": 646 },
-            { "x1": 243,  "y1": 651, "x2": 275,  "y2": 644 },
-            { "x1": 276,  "y1": 647, "x2": 275,  "y2": 578 },
-            { "x1": 280,  "y1": 580, "x2": 335,  "y2": 582 },
-            { "x1": 338,  "y1": 583, "x2": 340,  "y2": 531 },
-            { "x1": 342,  "y1": 528, "x2": 400,  "y2": 528 },
-            { "x1": 400,  "y1": 533, "x2": 402,  "y2": 635 },
-            { "x1": 401,  "y1": 637, "x2": 399,  "y2": 665 },
-            { "x1": 397,  "y1": 667, "x2": 340,  "y2": 665 },
-            { "x1": 75,   "y1": 614, "x2": 79,   "y2": 629 },
-            { "x1": 337,  "y1": 668, "x2": 338,  "y2": 687 },
-            { "x1": 339,  "y1": 690, "x2": 475,  "y2": 694 },
-            { "x1": 481,  "y1": 696, "x2": 478,  "y2": 784 },
-            { "x1": 478,  "y1": 785, "x2": 340,  "y2": 790 },
-            { "x1": 337,  "y1": 792, "x2": 330,  "y2": 809 },
-            { "x1": 330,  "y1": 811, "x2": 372,  "y2": 848 },
-            { "x1": 375,  "y1": 850, "x2": 520,  "y2": 854 },
-            { "x1": 523,  "y1": 855, "x2": 525,  "y2": 790 },
-            { "x1": 527,  "y1": 784, "x2": 602,  "y2": 784 },
-            { "x1": 601,  "y1": 791, "x2": 599,  "y2": 901 },
-            { "x1": 603,  "y1": 899, "x2": 905,  "y2": 901 },
-            { "x1": 901,  "y1": 900, "x2": 993,  "y2": 1001 },
-            { "x1": 991,  "y1": 1000, "x2": 1160, "y2": 1000 },
-            { "x1": 1166, "y1": 1001, "x2": 1162, "y2": 812 },
-            { "x1": 1166, "y1": 818, "x2": 1290, "y2": 814 },
-            { "x1": 1291, "y1": 814, "x2": 1294, "y2": 833 },
-            { "x1": 1293, "y1": 836, "x2": 1291, "y2": 863 },
-            { "x1": 1294, "y1": 866, "x2": 1186, "y2": 871 },
-            { "x1": 1182, "y1": 874, "x2": 1177, "y2": 921 },
-            { "x1": 1179, "y1": 922, "x2": 1203, "y2": 925 },
-            { "x1": 1205, "y1": 928, "x2": 1197, "y2": 955 },
-            { "x1": 1200, "y1": 955, "x2": 1188, "y2": 956 },
-            { "x1": 1193, "y1": 966, "x2": 1220, "y2": 991 },
-            { "x1": 1222, "y1": 990, "x2": 1233, "y2": 989 },
-            { "x1": 1234, "y1": 992, "x2": 1236, "y2": 971 },
-            { "x1": 1237, "y1": 971, "x2": 1260, "y2": 969 },
-            { "x1": 1259, "y1": 968, "x2": 1336, "y2": 969 },
-            { "x1": 1335, "y1": 970, "x2": 1337, "y2": 989 },
-            { "x1": 1344, "y1": 991, "x2": 1387, "y2": 951 },
-            { "x1": 1388, "y1": 957, "x2": 1389, "y2": 836 },
-            { "x1": 1389, "y1": 840, "x2": 1360, "y2": 838 },
-            { "x1": 1385, "y1": 869, "x2": 1362, "y2": 867 },
-            { "x1": 1362, "y1": 866, "x2": 1358, "y2": 807 },
-            { "x1": 1361, "y1": 810, "x2": 1398, "y2": 809 },
-            { "x1": 1404, "y1": 804, "x2": 1435, "y2": 800 },
-            { "x1": 1437, "y1": 803, "x2": 1476, "y2": 837 },
-            { "x1": 1475, "y1": 849, "x2": 1412, "y2": 847 },
-            { "x1": 1403, "y1": 845, "x2": 1406, "y2": 889 },
-            { "x1": 1404, "y1": 889, "x2": 1500, "y2": 897 },
-            { "x1": 1532, "y1": 859, "x2": 1504, "y2": 894 },
-            { "x1": 1532, "y1": 862, "x2": 1533, "y2": 823 },
-            { "x1": 1533, "y1": 822, "x2": 1534, "y2": 720 },
-            { "x1": 1533, "y1": 715, "x2": 1584, "y2": 713 },
-            { "x1": 1537, "y1": 676, "x2": 1593, "y2": 676 },
-            { "x1": 1593, "y1": 676, "x2": 1594, "y2": 712 },
-            { "x1": 1537, "y1": 675, "x2": 1533, "y2": 575 },
-            { "x1": 1469, "y1": 676, "x2": 1472, "y2": 720 },
-            { "x1": 1473, "y1": 720, "x2": 1446, "y2": 755 },
-            { "x1": 1444, "y1": 751, "x2": 1396, "y2": 757 },
-            { "x1": 1399, "y1": 756, "x2": 1159, "y2": 757 },
-            { "x1": 1159, "y1": 751, "x2": 1158, "y2": 623 },
-            { "x1": 1159, "y1": 621, "x2": 1144, "y2": 622 },
-            { "x1": 1156, "y1": 649, "x2": 1123, "y2": 649 },
-            { "x1": 1125, "y1": 655, "x2": 1120, "y2": 595 },
-            { "x1": 1124, "y1": 602, "x2": 1201, "y2": 610 },
-            { "x1": 1197, "y1": 602, "x2": 1198, "y2": 701 },
-            { "x1": 1203, "y1": 704, "x2": 1364, "y2": 701 },
-            { "x1": 1363, "y1": 704, "x2": 1401, "y2": 666 },
-            { "x1": 1397, "y1": 658, "x2": 1402, "y2": 517 },
-            { "x1": 1402, "y1": 517, "x2": 1369, "y2": 515 },
-            { "x1": 1364, "y1": 516, "x2": 1364, "y2": 558 },
-            { "x1": 1365, "y1": 558, "x2": 1248, "y2": 562 },
-            { "x1": 1251, "y1": 567, "x2": 1246, "y2": 522 },
-            { "x1": 1244, "y1": 518, "x2": 1203, "y2": 515 },
-            { "x1": 1200, "y1": 515, "x2": 1196, "y2": 556 },
-            { "x1": 1198, "y1": 556, "x2": 1118, "y2": 548 },
-            { "x1": 1123, "y1": 549, "x2": 1118, "y2": 471 },
-            { "x1": 1344, "y1": 619, "x2": 1259, "y2": 620 },
-            { "x1": 1260, "y1": 621, "x2": 1259, "y2": 648 },
-            { "x1": 1259, "y1": 652, "x2": 1343, "y2": 645 },
-            { "x1": 1343, "y1": 649, "x2": 1345, "y2": 630 },
-            { "x1": 1372, "y1": 398, "x2": 1310, "y2": 462 },
-            { "x1": 1315, "y1": 466, "x2": 1429, "y2": 462 },
-            { "x1": 1374, "y1": 397, "x2": 1472, "y2": 392 },
-            { "x1": 1470, "y1": 392, "x2": 1473, "y2": 272 },
-            { "x1": 1475, "y1": 275, "x2": 1456, "y2": 261 },
-            { "x1": 1457, "y1": 264, "x2": 1333, "y2": 273 },
-            { "x1": 1438, "y1": 464, "x2": 1435, "y2": 453 },
-            { "x1": 1433, "y1": 449, "x2": 1566, "y2": 448 },
-            { "x1": 1568, "y1": 449, "x2": 1572, "y2": 529 },
-            { "x1": 1569, "y1": 528, "x2": 1480, "y2": 528 },
-            { "x1": 1477, "y1": 532, "x2": 1471, "y2": 673 },
-            { "x1": 1536, "y1": 570, "x2": 1630, "y2": 565 },
-            { "x1": 1629, "y1": 572, "x2": 1627, "y2": 512 },
-            { "x1": 1627, "y1": 510, "x2": 1747, "y2": 507 },
-            { "x1": 1744, "y1": 510, "x2": 1747, "y2": 554 },
-            { "x1": 1745, "y1": 558, "x2": 1826, "y2": 562 },
-            { "x1": 1891, "y1": 516, "x2": 1834, "y2": 561 },
-            { "x1": 1893, "y1": 514, "x2": 1894, "y2": 416 },
-            { "x1": 1896, "y1": 435, "x2": 1829, "y2": 373 },
-            { "x1": 1826, "y1": 376, "x2": 1751, "y2": 376 },
-            { "x1": 1747, "y1": 370, "x2": 1742, "y2": 445 },
-            { "x1": 1742, "y1": 445, "x2": 1631, "y2": 451 },
-            { "x1": 1626, "y1": 455, "x2": 1624, "y2": 379 },
-            { "x1": 1621, "y1": 405, "x2": 1539, "y2": 398 },
-            { "x1": 1534, "y1": 404, "x2": 1533, "y2": 256 },
-            { "x1": 1535, "y1": 251, "x2": 1542, "y2": 215 },
-            { "x1": 1546, "y1": 213, "x2": 1586, "y2": 222 },
-            { "x1": 1589, "y1": 220, "x2": 1586, "y2": 184 },
-            { "x1": 1586, "y1": 186, "x2": 1493, "y2": 104 },
-            { "x1": 1497, "y1": 102, "x2": 1401, "y2": 101 },
-            { "x1": 1453, "y1": 110, "x2": 1451, "y2": 172 },
-            { "x1": 1452, "y1": 177, "x2": 1433, "y2": 209 },
-            { "x1": 1431, "y1": 211, "x2": 1326, "y2": 211 }
+            { "x1": 1206, "y1": 34,  "x2": 1333, "y2": 165 }, { "x1": 1326, "y1": 146, "x2": 1324, "y2": 215 },
+            { "x1": 1198, "y1": 35,  "x2": 901,  "y2": 33  }, { "x1": 944,  "y1": 32,  "x2": 866,  "y2": 109 },
+            { "x1": 859,  "y1": 211, "x2": 860,  "y2": 86  }, { "x1": 857,  "y1": 270, "x2": 857,  "y2": 360 },
+            { "x1": 858,  "y1": 368, "x2": 957,  "y2": 471 }, { "x1": 958,  "y1": 474, "x2": 1055, "y2": 472 },
+            { "x1": 1121, "y1": 471, "x2": 1215, "y2": 471 }, { "x1": 1329, "y1": 358, "x2": 1222, "y2": 466 },
+            { "x1": 1322, "y1": 270, "x2": 1326, "y2": 361 }, { "x1": 861,  "y1": 265, "x2": 786,  "y2": 269 },
+            { "x1": 784,  "y1": 274, "x2": 780,  "y2": 317 }, { "x1": 783,  "y1": 320, "x2": 845,  "y2": 324 },
+            { "x1": 841,  "y1": 322, "x2": 840,  "y2": 393 }, { "x1": 844,  "y1": 397, "x2": 836,  "y2": 420 },
+            { "x1": 840,  "y1": 422, "x2": 908,  "y2": 495 }, { "x1": 909,  "y1": 495, "x2": 913,  "y2": 515 },
+            { "x1": 913,  "y1": 516, "x2": 705,  "y2": 523 }, { "x1": 707,  "y1": 525, "x2": 663,  "y2": 483 },
+            { "x1": 668,  "y1": 486, "x2": 662,  "y2": 300 }, { "x1": 663,  "y1": 293, "x2": 714,  "y2": 291 },
+            { "x1": 717,  "y1": 290, "x2": 716,  "y2": 276 }, { "x1": 716,  "y1": 272, "x2": 529,  "y2": 277 },
+            { "x1": 535,  "y1": 274, "x2": 522,  "y2": 344 }, { "x1": 521,  "y1": 350, "x2": 473,  "y2": 353 },
+            { "x1": 471,  "y1": 356, "x2": 469,  "y2": 477 }, { "x1": 472,  "y1": 479, "x2": 522,  "y2": 476 },
+            { "x1": 523,  "y1": 480, "x2": 523,  "y2": 406 }, { "x1": 524,  "y1": 436, "x2": 566,  "y2": 391 },
+            { "x1": 566,  "y1": 390, "x2": 601,  "y2": 391 }, { "x1": 608,  "y1": 395, "x2": 634,  "y2": 419 },
+            { "x1": 639,  "y1": 422, "x2": 645,  "y2": 576 }, { "x1": 636,  "y1": 580, "x2": 538,  "y2": 584 },
+            { "x1": 532,  "y1": 585, "x2": 527,  "y2": 532 }, { "x1": 527,  "y1": 531, "x2": 474,  "y2": 531 },
+            { "x1": 473,  "y1": 536, "x2": 470,  "y2": 634 }, { "x1": 473,  "y1": 634, "x2": 471,  "y2": 664 },
+            { "x1": 472,  "y1": 664, "x2": 516,  "y2": 666 }, { "x1": 518,  "y1": 665, "x2": 524,  "y2": 735 },
+            { "x1": 530,  "y1": 729, "x2": 658,  "y2": 733 }, { "x1": 662,  "y1": 738, "x2": 663,  "y2": 844 },
+            { "x1": 663,  "y1": 845, "x2": 704,  "y2": 849 }, { "x1": 705,  "y1": 850, "x2": 704,  "y2": 813 },
+            { "x1": 703,  "y1": 817, "x2": 695,  "y2": 566 }, { "x1": 810,  "y1": 696, "x2": 705,  "y2": 692 },
+            { "x1": 809,  "y1": 696, "x2": 807,  "y2": 668 }, { "x1": 807,  "y1": 669, "x2": 706,  "y2": 671 },
+            { "x1": 704,  "y1": 588, "x2": 760,  "y2": 584 }, { "x1": 762,  "y1": 585, "x2": 766,  "y2": 599 },
+            { "x1": 768,  "y1": 603, "x2": 907,  "y2": 600 }, { "x1": 911,  "y1": 602, "x2": 910,  "y2": 610 },
+            { "x1": 913,  "y1": 613, "x2": 865,  "y2": 663 }, { "x1": 862,  "y1": 662, "x2": 862,  "y2": 744 },
+            { "x1": 861,  "y1": 747, "x2": 824,  "y2": 790 }, { "x1": 825,  "y1": 792, "x2": 768,  "y2": 795 },
+            { "x1": 770,  "y1": 794, "x2": 766,  "y2": 851 }, { "x1": 769,  "y1": 853, "x2": 904,  "y2": 850 },
+            { "x1": 904,  "y1": 845, "x2": 901,  "y2": 684 }, { "x1": 904,  "y1": 678, "x2": 902,  "y2": 706 },
+            { "x1": 913,  "y1": 727, "x2": 1005, "y2": 646 }, { "x1": 1013, "y1": 645, "x2": 1058, "y2": 649 },
+            { "x1": 1059, "y1": 644, "x2": 1059, "y2": 475 }, { "x1": 62,   "y1": 930, "x2": 34,   "y2": 916 },
+            { "x1": 855,  "y1": 214, "x2": 523,  "y2": 207 }, { "x1": 525,  "y1": 213, "x2": 522,  "y2": 164 },
+            { "x1": 514,  "y1": 156, "x2": 377,  "y2": 156 }, { "x1": 381,  "y1": 160, "x2": 348,  "y2": 183 },
+            { "x1": 353,  "y1": 190, "x2": 476,  "y2": 197 }, { "x1": 477,  "y1": 197, "x2": 479,  "y2": 301 },
+            { "x1": 478,  "y1": 293, "x2": 335,  "y2": 292 }, { "x1": 333,  "y1": 293, "x2": 329,  "y2": 343 },
+            { "x1": 332,  "y1": 342, "x2": 402,  "y2": 351 }, { "x1": 406,  "y1": 365, "x2": 402,  "y2": 476 },
+            { "x1": 401,  "y1": 482, "x2": 356,  "y2": 481 }, { "x1": 350,  "y1": 484, "x2": 344,  "y2": 393 },
+            { "x1": 343,  "y1": 416, "x2": 281,  "y2": 414 }, { "x1": 281,  "y1": 421, "x2": 279,  "y2": 324 },
+            { "x1": 280,  "y1": 330, "x2": 272,  "y2": 329 }, { "x1": 280,  "y1": 353, "x2": 241,  "y2": 348 },
+            { "x1": 241,  "y1": 353, "x2": 188,  "y2": 396 }, { "x1": 183,  "y1": 398, "x2": 183,  "y2": 414 },
+            { "x1": 184,  "y1": 416, "x2": 237,  "y2": 414 }, { "x1": 240,  "y1": 416, "x2": 241,  "y2": 529 },
+            { "x1": 243,  "y1": 533, "x2": 199,  "y2": 533 }, { "x1": 198,  "y1": 534, "x2": 197,  "y2": 614 },
+            { "x1": 198,  "y1": 620, "x2": 236,  "y2": 646 }, { "x1": 243,  "y1": 651, "x2": 275,  "y2": 644 },
+            { "x1": 276,  "y1": 647, "x2": 275,  "y2": 578 }, { "x1": 280,  "y1": 580, "x2": 335,  "y2": 582 },
+            { "x1": 338,  "y1": 583, "x2": 340,  "y2": 531 }, { "x1": 342,  "y1": 528, "x2": 400,  "y2": 528 },
+            { "x1": 400,  "y1": 533, "x2": 402,  "y2": 635 }, { "x1": 401,  "y1": 637, "x2": 399,  "y2": 665 },
+            { "x1": 397,  "y1": 667, "x2": 340,  "y2": 665 }, { "x1": 75,   "y1": 614, "x2": 79,   "y2": 629 },
+            { "x1": 337,  "y1": 668, "x2": 338,  "y2": 687 }, { "x1": 339,  "y1": 690, "x2": 475,  "y2": 694 },
+            { "x1": 481,  "y1": 696, "x2": 478,  "y2": 784 }, { "x1": 478,  "y1": 785, "x2": 340,  "y2": 790 },
+            { "x1": 337,  "y1": 792, "x2": 330,  "y2": 809 }, { "x1": 330,  "y1": 811, "x2": 372,  "y2": 848 },
+            { "x1": 375,  "y1": 850, "x2": 520,  "y2": 854 }, { "x1": 523,  "y1": 855, "x2": 525,  "y2": 790 },
+            { "x1": 527,  "y1": 784, "x2": 602,  "y2": 784 }, { "x1": 601,  "y1": 791, "x2": 599,  "y2": 901 },
+            { "x1": 603,  "y1": 899, "x2": 905,  "y2": 901 }, { "x1": 901,  "y1": 900, "x2": 993,  "y2": 1001 },
+            { "x1": 991,  "y1": 1000, "x2": 1160, "y2": 1000 }, { "x1": 1166, "y1": 1001, "x2": 1162, "y2": 812 },
+            { "x1": 1166, "y1": 818, "x2": 1290, "y2": 814 }, { "x1": 1291, "y1": 814, "x2": 1294, "y2": 833 },
+            { "x1": 1293, "y1": 836, "x2": 1291, "y2": 863 }, { "x1": 1294, "y1": 866, "x2": 1186, "y2": 871 },
+            { "x1": 1182, "y1": 874, "x2": 1177, "y2": 921 }, { "x1": 1179, "y1": 922, "x2": 1203, "y2": 925 },
+            { "x1": 1205, "y1": 928, "x2": 1197, "y2": 955 }, { "x1": 1200, "y1": 955, "x2": 1188, "y2": 956 },
+            { "x1": 1193, "y1": 966, "x2": 1220, "y2": 991 }, { "x1": 1222, "y1": 990, "x2": 1233, "y2": 989 },
+            { "x1": 1234, "y1": 992, "x2": 1236, "y2": 971 }, { "x1": 1237, "y1": 971, "x2": 1260, "y2": 969 },
+            { "x1": 1259, "y1": 968, "x2": 1336, "y2": 969 }, { "x1": 1335, "y1": 970, "x2": 1337, "y2": 989 },
+            { "x1": 1344, "y1": 991, "x2": 1387, "y2": 951 }, { "x1": 1388, "y1": 957, "x2": 1389, "y2": 836 },
+            { "x1": 1389, "y1": 840, "x2": 1360, "y2": 838 }, { "x1": 1385, "y1": 869, "x2": 1362, "y2": 867 },
+            { "x1": 1362, "y1": 866, "x2": 1358, "y2": 807 }, { "x1": 1361, "y1": 810, "x2": 1398, "y2": 809 },
+            { "x1": 1404, "y1": 804, "x2": 1435, "y2": 800 }, { "x1": 1437, "y1": 803, "x2": 1476, "y2": 837 },
+            { "x1": 1475, "y1": 849, "x2": 1412, "y2": 847 }, { "x1": 1403, "y1": 845, "x2": 1406, "y2": 889 },
+            { "x1": 1404, "y1": 889, "x2": 1500, "y2": 897 }, { "x1": 1532, "y1": 859, "x2": 1504, "y2": 894 },
+            { "x1": 1532, "y1": 862, "x2": 1533, "y2": 823 }, { "x1": 1533, "y1": 822, "x2": 1534, "y2": 720 },
+            { "x1": 1533, "y1": 715, "x2": 1584, "y2": 713 }, { "x1": 1537, "y1": 676, "x2": 1593, "y2": 676 },
+            { "x1": 1593, "y1": 676, "x2": 1594, "y2": 712 }, { "x1": 1537, "y1": 675, "x2": 1533, "y2": 575 },
+            { "x1": 1469, "y1": 676, "x2": 1472, "y2": 720 }, { "x1": 1473, "y1": 720, "x2": 1446, "y2": 755 },
+            { "x1": 1444, "y1": 751, "x2": 1396, "y2": 757 }, { "x1": 1399, "y1": 756, "x2": 1159, "y2": 757 },
+            { "x1": 1159, "y1": 751, "x2": 1158, "y2": 623 }, { "x1": 1159, "y1": 621, "x2": 1144, "y2": 622 },
+            { "x1": 1156, "y1": 649, "x2": 1123, "y2": 649 }, { "x1": 1125, "y1": 655, "x2": 1120, "y2": 595 },
+            { "x1": 1124, "y1": 602, "x2": 1201, "y2": 610 }, { "x1": 1197, "y1": 602, "x2": 1198, "y2": 701 },
+            { "x1": 1203, "y1": 704, "x2": 1364, "y2": 701 }, { "x1": 1363, "y1": 704, "x2": 1401, "y2": 666 },
+            { "x1": 1397, "y1": 658, "x2": 1402, "y2": 517 }, { "x1": 1402, "y1": 517, "x2": 1369, "y2": 515 },
+            { "x1": 1364, "y1": 516, "x2": 1364, "y2": 558 }, { "x1": 1365, "y1": 558, "x2": 1248, "y2": 562 },
+            { "x1": 1251, "y1": 567, "x2": 1246, "y2": 522 }, { "x1": 1244, "y1": 518, "x2": 1203, "y2": 515 },
+            { "x1": 1200, "y1": 515, "x2": 1196, "y2": 556 }, { "x1": 1198, "y1": 556, "x2": 1118, "y2": 548 },
+            { "x1": 1123, "y1": 549, "x2": 1118, "y2": 471 }, { "x1": 1344, "y1": 619, "x2": 1259, "y2": 620 },
+            { "x1": 1260, "y1": 621, "x2": 1259, "y2": 648 }, { "x1": 1259, "y1": 652, "x2": 1343, "y2": 645 },
+            { "x1": 1343, "y1": 649, "x2": 1345, "y2": 630 }, { "x1": 1372, "y1": 398, "x2": 1310, "y2": 462 },
+            { "x1": 1315, "y1": 466, "x2": 1429, "y2": 462 }, { "x1": 1374, "y1": 397, "x2": 1472, "y2": 392 },
+            { "x1": 1470, "y1": 392, "x2": 1473, "y2": 272 }, { "x1": 1475, "y1": 275, "x2": 1456, "y2": 261 },
+            { "x1": 1457, "y1": 264, "x2": 1333, "y2": 273 }, { "x1": 1438, "y1": 464, "x2": 1435, "y2": 453 },
+            { "x1": 1433, "y1": 449, "x2": 1566, "y2": 448 }, { "x1": 1568, "y1": 449, "x2": 1572, "y2": 529 },
+            { "x1": 1569, "y1": 528, "x2": 1480, "y2": 528 }, { "x1": 1477, "y1": 532, "x2": 1471, "y2": 673 },
+            { "x1": 1536, "y1": 570, "x2": 1630, "y2": 565 }, { "x1": 1629, "y1": 572, "x2": 1627, "y2": 512 },
+            { "x1": 1627, "y1": 510, "x2": 1747, "y2": 507 }, { "x1": 1744, "y1": 510, "x2": 1747, "y2": 554 },
+            { "x1": 1745, "y1": 558, "x2": 1826, "y2": 562 }, { "x1": 1891, "y1": 516, "x2": 1834, "y2": 561 },
+            { "x1": 1893, "y1": 514, "x2": 1894, "y2": 416 }, { "x1": 1896, "y1": 435, "x2": 1829, "y2": 373 },
+            { "x1": 1826, "y1": 376, "x2": 1751, "y2": 376 }, { "x1": 1747, "y1": 370, "x2": 1742, "y2": 445 },
+            { "x1": 1742, "y1": 445, "x2": 1631, "y2": 451 }, { "x1": 1626, "y1": 455, "x2": 1624, "y2": 379 },
+            { "x1": 1621, "y1": 405, "x2": 1539, "y2": 398 }, { "x1": 1534, "y1": 404, "x2": 1533, "y2": 256 },
+            { "x1": 1535, "y1": 251, "x2": 1542, "y2": 215 }, { "x1": 1546, "y1": 213, "x2": 1586, "y2": 222 },
+            { "x1": 1589, "y1": 220, "x2": 1586, "y2": 184 }, { "x1": 1586, "y1": 186, "x2": 1493, "y2": 104 },
+            { "x1": 1497, "y1": 102, "x2": 1401, "y2": 101 }, { "x1": 1453, "y1": 110, "x2": 1451, "y2": 172 },
+            { "x1": 1452, "y1": 177, "x2": 1433, "y2": 209 }, { "x1": 1431, "y1": 211, "x2": 1326, "y2": 211 }
         ];
 
-        // Cafeteria-Tische
-        const pivotX = 1062;
-        const pivotY = 354;
+        const pivotX = 1062; const pivotY = 354;
         const finalTables = [
             { cx: pivotX + (917 - pivotX) * 0.71 + 20, cy: pivotY + (218 - pivotY) * 0.77 - 110, radius: 52 * 0.77 },
             { cx: pivotX + (1208 - pivotX) * 0.71 + 20, cy: pivotY + (218 - pivotY) * 0.77 - 110, radius: 52 * 0.77 },
@@ -295,23 +251,7 @@
             { cx: pivotX + (1208 - pivotX) * 0.71 + 20, cy: pivotY + (491 - pivotY) * 0.77 - 110, radius: 52 * 0.77 }
         ];
 
-        // Security Screen Terminal Setup
-        const securityScreen = {
-            cx: 300, 
-            cy: 450, 
-            radius: 35, 
-            interactRange: 60 
-        };
-
-        // Kameras Definition (Position + Sichtbereich)
-        const cameras = [
-            { id: "Cafeteria", x: 1060, y: 150, angle: Math.PI / 2, fov: Math.PI / 3, range: 180 },
-            { id: "Weapons", x: 1500, y: 200, angle: Math.PI, fov: Math.PI / 3, range: 160 },
-            { id: "Navigation", x: 1820, y: 460, angle: Math.PI * 1.1, fov: Math.PI / 2, range: 170 },
-            { id: "Corridor_Left", x: 600, y: 450, angle: 0, fov: Math.PI / 3, range: 190 }
-        ];
-
-        // Texturen Laden
+        // Texturen Setup
         const textures = {};
         const sources = {
             map: 'assets/Map.png',
@@ -327,31 +267,18 @@
             textures[key].src = sources[key];
             textures[key].onload = () => {
                 loadedImages++;
-                if (loadedImages === totalImages) {
-                    updateButtonTexture(false);
-                }
+                if (loadedImages === totalImages) updateButtonTexture(false);
             };
         }
 
-        // Spieler-Objekt (halbiert)
-        let player = {
-            x: 1060, 
-            y: 260,  
-            radius: 10,   
-            width: 21,    
-            height: 27,   
-            speed: 4.5,
-            vx: 0,
-            vy: 0,
-            facingRight: true
-        };
-
+        let player = { x: 1060, y: 260, radius: 10, width: 21, height: 27, speed: 4.5, vx: 0, vy: 0, facingRight: true };
         let camera = { x: 0, y: 0 };
         let isViewingSecurity = false; 
         let nearSecurity = false;      
-        const keys = {};
+        let debugMode = false;
+        let activeDebugCamIdx = 0;
 
-        // UI Elemente
+        const keys = {};
         const joystickZone = document.getElementById('joystick-zone');
         const joystickKnob = document.getElementById('joystick-knob');
         const actionBtn = document.getElementById('action-btn');
@@ -366,19 +293,56 @@
         resizeCanvas();
 
         function updateButtonTexture(isSec) {
-            if (isSec) {
-                actionBtn.style.backgroundImage = `url('${sources.useSecBtn}')`;
-            } else {
-                actionBtn.style.backgroundImage = `url('${sources.useBtn}')`;
-            }
+            actionBtn.style.backgroundImage = `url('${isSec ? sources.useSecBtn : sources.useBtn}')`;
         }
 
-        // Input Handling
-        window.addEventListener('keydown', e => keys[e.key.toLowerCase()] = true);
+        // Inputs
+        window.addEventListener('keydown', e => {
+            keys[e.key.toLowerCase()] = true;
+            if (e.ctrlKey && e.key.toLowerCase() === 'm') {
+                e.preventDefault();
+                toggleDebugMode();
+            }
+        });
         window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
 
+        function toggleDebugMode() {
+            debugMode = !debugMode;
+            document.getElementById('debug-ui').style.display = debugMode ? 'block' : 'none';
+            document.getElementById('debug-toggle-btn').style.background = debugMode ? '#00ffcc' : 'rgba(255,0,0,0.6)';
+            document.getElementById('debug-toggle-btn').style.color = debugMode ? '#000' : '#fff';
+            if(debugMode) syncDebugJSON();
+        }
+
+        function syncDebugJSON() {
+            document.getElementById('debug-json').value = JSON.stringify(gameConfig, null, 4);
+        }
+
+        // Klick auf Map im Debug Mode verarbeitet Platzierung
+        canvas.addEventListener('click', e => {
+            if (!debugMode) return;
+            
+            // Berechne reale Koordinaten auf der Map (inklusive Kamera-Verschiebung)
+            let rect = canvas.getBoundingClientRect();
+            let clickX = e.clientX - rect.left + camera.x;
+            let clickY = e.clientY - rect.top + camera.y;
+
+            if (keys['shift']) {
+                // Setze Security Monitor Center
+                gameConfig.securityScreen.cx = Math.round(clickX);
+                gameConfig.securityScreen.cy = Math.round(clickY);
+            } else {
+                // Rotiere Cam-Auswahl und platziere sie
+                let cam = gameConfig.cameras[activeDebugCamIdx];
+                cam.x = Math.round(clickX);
+                cam.y = Math.round(clickY);
+                activeDebugCamIdx = (activeDebugCamIdx + 1) % gameConfig.cameras.length;
+            }
+            syncDebugJSON();
+        });
+
         joystickZone.addEventListener('touchstart', e => {
-            if (isViewingSecurity) return;
+            if (isViewingSecurity || debugMode) return;
             joystickActive = true;
             const rect = joystickZone.getBoundingClientRect();
             joystickStartX = rect.left + rect.width / 2;
@@ -406,65 +370,46 @@
         const endJoystick = () => {
             joystickActive = false;
             joystickKnob.style.transform = 'translate(0px, 0px)';
-            player.vx = 0;
-            player.vy = 0;
+            player.vx = 0; player.vy = 0;
         };
         window.addEventListener('touchend', endJoystick);
 
-        // Action-Button Logik (Klick auf Screens)
         actionBtn.addEventListener('touchstart', (e) => {
             e.preventDefault();
             if (nearSecurity) {
                 isViewingSecurity = !isViewingSecurity;
-                if (isViewingSecurity) {
-                    endJoystick();
-                    joystickZone.style.display = 'none';
-                } else {
-                    joystickZone.style.display = 'flex';
-                }
+                joystickZone.style.display = isViewingSecurity ? 'none' : 'flex';
+                if (isViewingSecurity) endJoystick();
             }
         });
 
         // Kollisionen
         function resolveLineCollision(p, line) {
-            let dx = line.x2 - line.x1;
-            let dy = line.y2 - line.y1;
-            let lenSq = dx * dx + dy * dy;
-            if (lenSq === 0) return;
-
+            let dx = line.x2 - line.x1; let dy = line.y2 - line.y1;
+            let lenSq = dx * dx + dy * dy; if (lenSq === 0) return;
             let t = Math.max(0, Math.min(1, ((p.x - line.x1) * dx + (p.y - line.y1) * dy) / lenSq));
-            let closestX = line.x1 + t * dx;
-            let closestY = line.y1 + t * dy;
-
-            let distVecX = p.x - closestX;
-            let distVecY = p.y - closestY;
+            let closestX = line.x1 + t * dx; let closestY = line.y1 + t * dy;
+            let distVecX = p.x - closestX; let distVecY = p.y - closestY;
             let distance = Math.sqrt(distVecX * distVecX + distVecY * distVecY);
             let minDist = p.radius + (wallThickness / 2);
-
             if (distance < minDist && distance !== 0) {
                 let overlap = minDist - distance;
-                p.x += (distVecX / distance) * overlap;
-                p.y += (distVecY / distance) * overlap;
+                p.x += (distVecX / distance) * overlap; p.y += (distVecY / distance) * overlap;
             }
         }
 
         function resolveCircleCollision(p, circle) {
-            let dx = p.x - circle.cx;
-            let dy = p.y - circle.cy;
+            let dx = p.x - circle.cx; let dy = p.y - circle.cy;
             let distance = Math.sqrt(dx * dx + dy * dy);
             let minDist = p.radius + circle.radius;
-
             if (distance < minDist && distance !== 0) {
                 let overlap = minDist - distance;
-                p.x += (dx / distance) * overlap;
-                p.y += (dy / distance) * overlap;
+                p.x += (dx / distance) * overlap; p.y += (dy / distance) * overlap;
             }
         }
 
         function update() {
-            // Wenn man durch die Kameras schaut, friert die Bewegung ein
             if (isViewingSecurity) {
-                // Ermöglicht das Verlassen der Kameras via Tastatur
                 if (keys['e'] || keys['escape']) {
                     isViewingSecurity = false;
                     joystickZone.style.display = 'flex';
@@ -481,26 +426,20 @@
             else if (keys['d'] || keys['arrowright']) { player.vx = player.speed; player.facingRight = true; }
             else if (!joystickActive) player.vx = 0;
 
-            if (joystickActive && player.vx !== 0) {
-                player.facingRight = player.vx > 0;
-            }
+            if (joystickActive && player.vx !== 0) player.facingRight = player.vx > 0;
 
             player.x += player.vx;
             player.y += player.vy;
 
-            // Kollisionsabfragen
             for (let line of wallLines) resolveLineCollision(player, line);
             for (let table of finalTables) resolveCircleCollision(player, table);
-            resolveCircleCollision(player, { cx: securityScreen.cx, cy: securityScreen.cy, radius: securityScreen.radius });
+            resolveCircleCollision(player, { cx: gameConfig.securityScreen.cx, cy: gameConfig.securityScreen.cy, radius: gameConfig.securityScreen.radius });
 
-            if (player.x < 0) player.x = 0;
-            if (player.y < 0) player.y = 0;
-            if (player.x > mapWidth) player.x = mapWidth;
-            if (player.y > mapHeight) player.y = mapHeight;
+            if (player.x < 0) player.x = 0; if (player.y < 0) player.y = 0;
+            if (player.x > mapWidth) player.x = mapWidth; if (player.y > mapHeight) player.y = mapHeight;
 
-            // Check ob nah genug an Security Screens für Button-Wechsel
-            let distToSec = Math.sqrt((player.x - securityScreen.cx) ** 2 + (player.y - securityScreen.cy) ** 2);
-            let currentlyNear = distToSec <= (player.radius + securityScreen.interactRange);
+            let distToSec = Math.sqrt((player.x - gameConfig.securityScreen.cx) ** 2 + (player.y - gameConfig.securityScreen.cy) ** 2);
+            let currentlyNear = distToSec <= (player.radius + gameConfig.securityScreen.interactRange);
             
             if (currentlyNear !== nearSecurity) {
                 nearSecurity = currentlyNear;
@@ -513,34 +452,58 @@
                 keys['e'] = false;
             }
 
-            // Kamera-Verfolgung
             camera.x = player.x - canvas.width / 2;
             camera.y = player.y - canvas.height / 2;
             camera.x = Math.max(0, Math.min(mapWidth - canvas.width, camera.x));
             camera.y = Math.max(0, Math.min(mapHeight - canvas.height, camera.y));
         }
 
-        // Zeichne lila Kamera-Sichtfelder
-        function drawCameraFOV(cam) {
+        // Berechnet und zeichnet das geometrisch exakte lila Viereck (Sicht-Trapez)
+        function drawCameraVisionSquare(cam) {
+            let leftAngle = cam.angle - cam.fov / 2;
+            let rightAngle = cam.angle + cam.fov / 2;
+
+            // Startkoordinaten der äußeren Ecken des Feldes
+            let farLeftX = cam.x + Math.cos(leftAngle) * cam.range;
+            let farLeftY = cam.y + Math.sin(leftAngle) * cam.range;
+            let farRightX = cam.x + Math.cos(rightAngle) * cam.range;
+            let farRightY = cam.y + Math.sin(rightAngle) * cam.range;
+
             ctx.fillStyle = 'rgba(168, 85, 247, 0.15)'; 
             ctx.strokeStyle = 'rgba(168, 85, 247, 0.4)';
             ctx.lineWidth = 2;
 
             ctx.beginPath();
             ctx.moveTo(cam.x, cam.y);
-            ctx.arc(cam.x, cam.y, cam.range, cam.angle - cam.fov / 2, cam.angle + cam.fov / 2);
+            ctx.lineTo(farLeftX, farLeftY);
+            ctx.lineTo(farRightX, farRightY);
             ctx.closePath();
             ctx.fill();
             ctx.stroke();
 
-            // Kleines Kamera-Symbol/Punkt
+            // Kamera-Kopf-Punkt
             ctx.fillStyle = '#a855f7';
-            ctx.beginPath();
-            ctx.arc(cam.x, cam.y, 6, 0, Math.PI * 2);
-            ctx.fill();
+            ctx.beginPath(); ctx.arc(cam.x, cam.y, 6, 0, Math.PI * 2); ctx.fill();
+            
+            // Markiert im Debug Mode die aktuell ausgelesene Cam
+            if (debugMode && gameConfig.cameras[activeDebugCamIdx] === cam) {
+                ctx.strokeStyle = '#fff';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(cam.x - 10, cam.y - 10, 20, 20);
+            }
         }
 
-        // Grid-Ansicht für Security-Modus
+        // Prüft, ob sich ein Punkt innerhalb des Sichtdreiecks/Vierecks der Kamera befindet
+        function isPointInVision(px, py, cam) {
+            let dx = px - cam.x; let dy = py - cam.y;
+            let dist = Math.sqrt(dx*dx + dy*dy);
+            if (dist > cam.range) return false;
+
+            let angleToPoint = Math.atan2(dy, dx);
+            let diff = Math.atan2(Math.sin(angleToPoint - cam.angle), Math.cos(angleToPoint - cam.angle));
+            return Math.abs(diff) <= cam.fov / 2;
+        }
+
         function drawSecurityMonitorSystem() {
             ctx.fillStyle = '#050508';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -550,71 +513,44 @@
             const h = (canvas.height - padding * 3) / 2;
 
             const gridPositions = [
-                { x: padding, y: padding },
-                { x: padding * 2 + w, y: padding },
-                { x: padding, y: padding * 2 + h },
-                { x: padding * 2 + w, y: padding * 2 + h }
+                { x: padding, y: padding }, { x: padding * 2 + w, y: padding },
+                { x: padding, y: padding * 2 + h }, { x: padding * 2 + w, y: padding * 2 + h }
             ];
 
-            cameras.forEach((cam, i) => {
+            gameConfig.cameras.forEach((cam, i) => {
                 let pos = gridPositions[i];
                 ctx.save();
-                
-                // Erstelle Viewport für den einzelnen Screen
-                ctx.beginPath();
-                ctx.rect(pos.x, pos.y, w, h);
-                ctx.clip();
+                ctx.beginPath(); ctx.rect(pos.x, pos.y, w, h); ctx.clip();
 
-                // Rendere Map aus Sicht der Kamera zentriert
                 ctx.translate(pos.x + w / 2 - cam.x, pos.y + h / 2 - cam.y);
 
-                if (textures.map && textures.map.complete) {
-                    ctx.drawImage(textures.map, 0, 0, mapWidth, mapHeight);
-                }
+                if (textures.map && textures.map.complete) ctx.drawImage(textures.map, 0, 0, mapWidth, mapHeight);
 
-                // Zeichne lila Kegel auch im Monitor
-                drawCameraFOV(cam);
+                drawCameraVisionSquare(cam);
 
-                // Zeichne Spieler, falls im Blickfeld dieser Kamera
-                let dx = player.x - cam.x;
-                let dy = player.y - cam.y;
-                let dist = Math.sqrt(dx*dx + dy*dy);
-                if (dist <= cam.range) {
-                    let angleToPlayer = Math.atan2(dy, dx);
-                    let diff = Math.atan2(Math.sin(angleToPlayer - cam.angle), Math.cos(angleToPlayer - cam.angle));
-                    if (Math.abs(diff) <= cam.fov / 2) {
-                        ctx.save();
-                        ctx.translate(player.x, player.y);
-                        if (!player.facingRight) ctx.scale(-1, 1);
-                        if (textures.player && textures.player.complete) {
-                            ctx.drawImage(textures.player, -player.width/2, -player.height/2, player.width, player.height);
-                        }
-                        ctx.restore();
+                if (isPointInVision(player.x, player.y, cam)) {
+                    ctx.save();
+                    ctx.translate(player.x, player.y);
+                    if (!player.facingRight) ctx.scale(-1, 1);
+                    if (textures.player && textures.player.complete) {
+                        ctx.drawImage(textures.player, -player.width/2, -player.height/2, player.width, player.height);
                     }
+                    ctx.restore();
                 }
-
                 ctx.restore();
 
-                // Rahmen & Text für die Monitore
-                ctx.strokeStyle = '#3b82f6';
-                ctx.lineWidth = 3;
+                ctx.strokeStyle = '#3b82f6'; ctx.lineWidth = 3;
                 ctx.strokeRect(pos.x, pos.y, w, h);
 
-                ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
-                ctx.fillRect(pos.x + 10, pos.y + 10, 140, 30);
-                ctx.fillStyle = '#00ffcc';
-                ctx.font = 'bold 14px monospace';
-                ctx.fillText(`CAM: ${cam.id}`, pos.x + 20, pos.y + 30);
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.6)'; ctx.fillRect(pos.x + 10, pos.y + 10, 145, 30);
+                ctx.fillStyle = '#00ffcc'; ctx.font = 'bold 12px monospace';
+                ctx.fillText(`CAM: ${cam.id}`, pos.x + 20, pos.y + 28);
             });
 
-            // Hinweis zum Verlassen oben mittig anzeigen
-            ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-            ctx.fillRect(canvas.width / 2 - 150, canvas.height - 50, 300, 40);
-            ctx.fillStyle = '#fff';
-            ctx.font = '14px sans-serif';
-            ctx.textAlign = 'center';
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.7)'; ctx.fillRect(canvas.width / 2 - 150, canvas.height - 50, 300, 40);
+            ctx.fillStyle = '#fff'; ctx.font = '14px sans-serif'; ctx.textAlign = 'center';
             ctx.fillText('Tap USE Button to Exit Security', canvas.width / 2, canvas.height - 25);
-            ctx.textAlign = 'left'; // Reset
+            ctx.textAlign = 'left';
         }
 
         function draw() {
@@ -627,43 +563,31 @@
             ctx.save();
             ctx.translate(-camera.x, -camera.y);
 
-            // Map
-            if (textures.map && textures.map.complete && textures.map.naturalWidth !== 0) {
+            if (textures.map && textures.map.complete) {
                 ctx.drawImage(textures.map, 0, 0, mapWidth, mapHeight);
             } else {
-                ctx.fillStyle = '#1e1e24';
-                ctx.fillRect(0, 0, mapWidth, mapHeight);
+                ctx.fillStyle = '#1e1e24'; ctx.fillRect(0, 0, mapWidth, mapHeight);
             }
 
-            // Zeichne Kamera-Sichtfelder auf der echten Map
-            cameras.forEach(cam => drawCameraFOV(cam));
+            // Render Viereck-Vision-Fields
+            gameConfig.cameras.forEach(cam => drawCameraVisionSquare(cam));
 
-            // Security Screens Terminal (Interaktives Objekt)
+            // Terminal
             ctx.fillStyle = nearSecurity ? 'rgba(0, 255, 200, 0.4)' : 'rgba(59, 130, 246, 0.4)';
             ctx.strokeStyle = nearSecurity ? '#00ffcc' : '#3b82f6';
             ctx.lineWidth = 3;
             ctx.beginPath();
-            ctx.arc(securityScreen.cx, securityScreen.cy, securityScreen.radius, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.stroke();
+            ctx.arc(gameConfig.securityScreen.cx, gameConfig.securityScreen.cy, gameConfig.securityScreen.radius, 0, Math.PI * 2);
+            ctx.fill(); ctx.stroke();
 
-            // Hitbox-Wände (Optional zur Debugging-Visualisierung)
-            ctx.strokeStyle = 'rgba(255, 0, 50, 0.15)';
-            ctx.lineWidth = wallThickness;
-            for (let line of wallLines) {
-                ctx.beginPath(); ctx.moveTo(line.x1, line.y1); ctx.lineTo(line.x2, line.y2); ctx.stroke();
-            }
-
-            // Spieler rendern
+            // Player
             ctx.save();
             ctx.translate(player.x, player.y);
             if (!player.facingRight) ctx.scale(-1, 1);
-
-            if (textures.player && textures.player.complete && textures.player.naturalWidth !== 0) {
+            if (textures.player && textures.player.complete) {
                 ctx.drawImage(textures.player, -player.width / 2, -player.height / 2, player.width, player.height);
             } else {
-                ctx.fillStyle = '#da2222';
-                ctx.fillRect(-player.width / 2, -player.height / 2, player.width, player.height);
+                ctx.fillStyle = '#da2222'; ctx.fillRect(-player.width / 2, -player.height / 2, player.width, player.height);
             }
             ctx.restore();
 
@@ -675,7 +599,6 @@
             draw();
             requestAnimationFrame(loop);
         }
-
         requestAnimationFrame(loop);
     </script>
 </body>
