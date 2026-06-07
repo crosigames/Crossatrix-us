@@ -37,13 +37,13 @@
             align-items: center;
             justify-content: center;
             touch-action: none;
+            z-index: 10;
         }
         #joystick-knob {
             width: 50px;
             height: 50px;
             background: rgba(255, 255, 255, 0.5);
             border-radius: 50%;
-            transition: transform 0.05s linear;
         }
         #action-btn {
             position: absolute;
@@ -62,7 +62,7 @@
             justify-content: center;
             touch-action: none;
             box-shadow: 0 0 10px rgba(0,0,0,0.5);
-            cursor: pointer;
+            z-index: 10;
         }
     </style>
 </head>
@@ -77,49 +77,53 @@
     <div id="action-btn">USE</div>
 
     <script>
-        const TEXTURE_PATHS = {
-            map: 'assets/Map.png',
-            player: 'assets/IMG_0964.webp'
-        };
-
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
 
-        const textures = {};
-        let texturesLoaded = 0;
-        const totalTextures = Object.keys(TEXTURE_PATHS).length;
-
-        // Echte native Auflösung deines hochgeladenen Bildes
+        // Map-Größe basierend auf dem 1080p-Bild
         const mapWidth = 1920;
         const mapHeight = 1080;
 
+        // Texturen-Setup
+        const textures = {};
+        const sources = {
+            map: 'assets/Map.png',
+            player: 'assets/IMG_0964.webp'
+        };
+        
+        let loadedCount = 0;
+        const totalSources = Object.keys(sources).length;
+
+        // Einzelne Bilder laden (Fallback sichert den Spielstart, falls Pfade falsch sind)
+        for (let key in sources) {
+            textures[key] = new Image();
+            textures[key].src = sources[key];
+            textures[key].onload = () => { loadedCount++; };
+            textures[key].onerror = () => { 
+                console.log("Konnte " + sources[key] + " nicht laden. Nutze Fallback-Grafik.");
+                loadedCount++; 
+            };
+        }
+
         // ==========================================
-        // COLLISION DATA (Umgerechnet auf 1920x1080)
+        // VEREINFACHTE & ZENTRIERTE HITBOXEN (1920x1080)
         // ==========================================
         const hitboxes = [
-            // Außenwände
-            { x: 0, y: 0, width: 1920, height: 30 },                  
-            { x: 0, y: 1050, width: 1920, height: 30 },    
-            { x: 0, y: 0, width: 30, height: 1080 },                  
-            { x: 1890, y: 0, width: 30, height: 1080 },    
+            // Robuster Außenkäfig um die Cafeteria
+            { x: 0, y: 0, width: 1920, height: 40 },
+            { x: 0, y: 1040, width: 1920, height: 40 },
+            { x: 0, y: 0, width: 40, height: 1080 },
+            { x: 1880, y: 0, width: 40, height: 1080 },
 
-            // Cafeteria Raumstrukturen
-            { x: 908, y: 45,  width: 307, height: 45 },   
-            { x: 720, y: 45,  width: 188, height: 90 },  
-            { x: 1215, y: 45,  width: 188, height: 90 },  
-            { x: 720, y: 135, width: 45,  height: 300 },  
-            { x: 1358, y: 135, width: 45,  height: 300 },  
-            { x: 720, y: 435, width: 188, height: 105 },  
-            { x: 1215, y: 435, width: 188, height: 105 },  
-            
-            // Südausgang (Flur) mit korrekten JS-Kommentaren (//)
-            { x: 908, y: 540, width: 82,  height: 45 },   // Wand links vom Flur
-            { x: 1133, y: 540, width: 82,  height: 45 },   // Wand rechts vom Flur
-            { x: 975, y: 585, width: 15,  height: 300 },  // Flurwand links
-            { x: 1133, y: 585, width: 15,  height: 300 }   // Flurwand rechts
+            // Cafeteria Wände (Grobe Boxen um den Raum zu halten)
+            { x: 700, y: 40, width: 50, height: 500 },  // Links
+            { x: 1360, y: 40, width: 50, height: 500 }, // Rechts
+            { x: 700, y: 40, width: 710, height: 50 },  // Oben
+            { x: 700, y: 540, width: 220, height: 50 }, // Unten Links
+            { x: 1190, y: 540, width: 220, height: 50 } // Unten Rechts
         ];
 
-        // Die 5 Tische exakt auf der 1920er-Map zentriert (Radius 52 passt perfekt zum Maßstab)
+        // Die 5 Tische
         const circleHitboxes = [
             { cx: 917,  cy: 218, radius: 52 }, // Oben Links
             { cx: 1208, cy: 218, radius: 52 }, // Oben Rechts
@@ -128,10 +132,10 @@
             { cx: 1208, cy: 491, radius: 52 }  // Unten Rechts
         ];
 
-        // Spieler-Setup (Skaliert für die 1080p Map)
+        // Spieler-Setup: Spawnt EXAKT im Zentrum des Emergency-Tisches (Mitte)
         let player = {
-            x: 1035, 
-            y: 450, 
+            x: 1041, // 1062 - (42/2)
+            y: 327,  // 354 - (54/2)
             width: 42,  
             height: 54, 
             speed: 5,
@@ -143,31 +147,16 @@
         let camera = { x: 0, y: 0 };
         const keys = {};
 
+        // Joystick-Steuerung
         const joystickZone = document.getElementById('joystick-zone');
         const joystickKnob = document.getElementById('joystick-knob');
         let joystickActive = false;
         let joystickStartX = 0;
         let joystickStartY = 0;
 
-        function loadTextures() {
-            for (let key in TEXTURE_PATHS) {
-                textures[key] = new Image();
-                textures[key].src = TEXTURE_PATHS[key];
-                textures[key].onload = () => {
-                    texturesLoaded++;
-                    if (texturesLoaded === totalTextures) initGame();
-                };
-                textures[key].onerror = () => {
-                    texturesLoaded++;
-                    if (texturesLoaded === totalTextures) initGame();
-                };
-            }
-        }
-
         function resizeCanvas() {
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
-            ctx.imageSmoothingEnabled = true;
         }
         window.addEventListener('resize', resizeCanvas);
         resizeCanvas();
@@ -236,6 +225,7 @@
         }
 
         function update() {
+            // Keyboard Controls
             if (keys['w'] || keys['arrowup']) player.vy = -player.speed;
             else if (keys['s'] || keys['arrowdown']) player.vy = player.speed;
             else if (!joystickActive) player.vy = 0;
@@ -248,6 +238,7 @@
                 player.facingRight = player.vx > 0;
             }
 
+            // X-Achse Bewegung & Kollision
             player.x += player.vx;
             for (let box of hitboxes) {
                 if (checkRectCollision(player, box)) {
@@ -256,6 +247,7 @@
                 }
             }
 
+            // Y-Achse Bewegung & Kollision
             player.y += player.vy;
             for (let box of hitboxes) {
                 if (checkRectCollision(player, box)) {
@@ -264,13 +256,16 @@
                 }
             }
 
+            // Kreis-Kollisionen (Tische)
             for (let circle of circleHitboxes) {
                 resolveCircleCollision(player, circle);
             }
 
+            // Kamera-Fokus auf Spielerzentrierung
             camera.x = player.x + player.width / 2 - canvas.width / 2;
             camera.y = player.y + player.height / 2 - canvas.height / 2;
 
+            // Kamera-Begrenzung an Map-Rändern
             const maxCamX = mapWidth - canvas.width;
             const maxCamY = mapHeight - canvas.height;
 
@@ -286,6 +281,7 @@
             ctx.save();
             ctx.translate(-camera.x, -camera.y);
 
+            // Hintergrund / Map zeichnen
             if (textures.map && textures.map.complete && textures.map.naturalWidth !== 0) {
                 ctx.drawImage(textures.map, 0, 0, mapWidth, mapHeight);
             } else {
@@ -293,7 +289,7 @@
                 ctx.fillRect(0, 0, mapWidth, mapHeight);
             }
 
-            // Rote Debug-Layer zur Ausrichtungskontrolle
+            // Rote Debug-Layer für Hitboxen
             ctx.fillStyle = 'rgba(255, 0, 0, 0.4)';
             for (let box of hitboxes) {
                 ctx.fillRect(box.x, box.y, box.width, box.height);
@@ -304,7 +300,7 @@
                 ctx.fill();
             }
 
-            // Player rendern
+            // Spieler zeichnen
             ctx.save();
             ctx.translate(player.x + player.width / 2, player.y + player.height / 2);
             if (!player.facingRight) ctx.scale(-1, 1);
@@ -326,11 +322,8 @@
             requestAnimationFrame(loop);
         }
 
-        function initGame() {
-            requestAnimationFrame(loop);
-        }
-
-        loadTextures();
+        // Startet den Loop bedingungslos, egal ob Texturen geladen sind oder nicht!
+        requestAnimationFrame(loop);
     </script>
 </body>
 </html>
