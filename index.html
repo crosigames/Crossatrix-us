@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Among Us Clone - Hitbox Calibrator</title>
+    <title>Among Us Clone - Ultimate Calibrator</title>
     <style>
         * {
             box-sizing: border-box;
@@ -24,42 +24,57 @@
             width: 100vw;
             height: 100vh;
         }
-        /* Kalibrierungs-Panel */
+        /* Fixiertes Control-Panel unabhängig von der Kamera */
         #calibrator-panel {
             position: absolute;
             top: 10px;
             left: 10px;
-            background: rgba(0, 0, 0, 0.85);
+            background: rgba(0, 0, 0, 0.9);
             color: #fff;
-            padding: 12px;
+            padding: 14px;
             border-radius: 8px;
-            font-size: 13px;
+            font-size: 12px;
             z-index: 100;
-            border: 1px solid #555;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+            border: 1px solid #00ffcc;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.6);
+            max-width: 290px;
+        }
+        .panel-title {
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #00ffcc;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
         .control-group {
-            margin-bottom: 8px;
+            margin-bottom: 6px;
             display: flex;
             align-items: center;
-            gap: 5px;
+            justify-content: space-between;
+            gap: 4px;
         }
         .control-group span {
-            min-width: 90px;
+            min-width: 95px;
             display: inline-block;
             font-weight: bold;
         }
+        .btn-wrapper {
+            display: flex;
+            gap: 2px;
+        }
         button {
-            background: #444;
+            background: #333;
             color: white;
-            border: 1px solid #666;
-            padding: 4px 8px;
+            border: 1px solid #555;
+            padding: 4px 6px;
             border-radius: 4px;
             cursor: pointer;
             font-size: 11px;
+            min-width: 32px;
         }
         button:active {
-            background: #666;
+            background: #00ffcc;
+            color: #000;
         }
         #joystick-zone {
             position: absolute;
@@ -106,22 +121,51 @@
 <body>
 
     <div id="calibrator-panel">
-        <div style="font-weight: bold; margin-bottom: 8px; color: #00ffcc;">Hitbox Verschiebung:</div>
+        <div class="panel-title">Hitbox Matrix Kalibrierung</div>
+        
         <div class="control-group">
-            <span id="val-x">X-Offset: 0</span>
-            <button onclick="adjustOffset('x', -10)">-10</button>
-            <button onclick="adjustOffset('x', -1)">-1</button>
-            <button onclick="adjustOffset('x', 1)">+1</button>
-            <button onclick="adjustOffset('x', 10)">+10</button>
+            <span id="val-x">X-Offset: 20</span>
+            <div class="btn-wrapper">
+                <button onclick="adjust('x', -10)">-10</button>
+                <button onclick="adjust('x', -1)">-1</button>
+                <button onclick="adjust('x', 1)">+1</button>
+                <button onclick="adjust('x', 10)">+10</button>
+            </div>
         </div>
         <div class="control-group">
-            <span id="val-y">Y-Offset: 0</span>
-            <button onclick="adjustOffset('y', -10)">-10</button>
-            <button onclick="adjustOffset('y', -1)">-1</button>
-            <button onclick="adjustOffset('y', 1)">+1</button>
-            <button onclick="adjustOffset('y', 10)">+10</button>
+            <span id="val-y">Y-Offset: -106</span>
+            <div class="btn-wrapper">
+                <button onclick="adjust('y', -10)">-10</button>
+                <button onclick="adjust('y', -1)">-1</button>
+                <button onclick="adjust('y', 1)">+1</button>
+                <button onclick="adjust('y', 10)">+10</button>
+            </div>
         </div>
-        <div style="font-size: 10px; color: #aaa; margin-top: 5px;">Bewege die Boxen bis sie auf der Map passen!</div>
+        
+        <hr style="border: 0; border-top: 1px solid #444; margin: 8px 0;">
+        
+        <div class="control-group">
+            <span id="val-fx">X-Faktor: 1.00</span>
+            <div class="btn-wrapper">
+                <button onclick="adjust('fx', -0.1)">-0.1</button>
+                <button onclick="adjust('fx', -0.01)">-.01</button>
+                <button onclick="adjust('fx', 0.01)">+.01</button>
+                <button onclick="adjust('fx', 0.1)">+0.1</button>
+            </div>
+        </div>
+        <div class="control-group">
+            <span id="val-fy">Y-Faktor: 1.00</span>
+            <div class="btn-wrapper">
+                <button onclick="adjust('fy', -0.1)">-0.1</button>
+                <button onclick="adjust('fy', -0.01)">-.01</button>
+                <button onclick="adjust('fy', 0.01)">+.01</button>
+                <button onclick="adjust('fy', 0.1)">+0.1</button>
+            </div>
+        </div>
+        <div style="font-size: 10px; color: #aaa; margin-top: 6px; line-height: 1.2;">
+            1. Nutze <b>Faktor</b>, um den Abstand zwischen den Wänden/Tischen zu ändern.<br>
+            2. Nutze <b>Offset</b>, um das gesamte fertige Konstrukt zu verschieben.
+        </div>
     </div>
 
     <canvas id="gameCanvas"></canvas>
@@ -139,15 +183,26 @@
         const mapWidth = 1920;
         const mapHeight = 1080;
 
-        // Dynamische Offsets, die du über das Panel veränderst
-        let offsetX = 0;
-        let offsetY = 0;
+        // Startwerte basierend auf deinem Screenshot
+        let offsetX = 20;
+        let offsetY = -106;
+        let factorX = 1.0;
+        let factorY = 1.0;
 
-        function adjustOffset(axis, amount) {
-            if (axis === 'x') offsetX += amount;
-            if (axis === 'y') offsetY += amount;
+        // Dreh- und Angelpunkt für das Skalieren ist das Zentrum des Emergency-Tisches
+        const pivotX = 1062;
+        const pivotY = 354;
+
+        function adjust(type, amount) {
+            if (type === 'x') offsetX += amount;
+            if (type === 'y') offsetY += amount;
+            if (type === 'fx') factorX = Math.max(0.1, factorX + amount);
+            if (type === 'fy') factorY = Math.max(0.1, factorY + amount);
+            
             document.getElementById('val-x').innerText = `X-Offset: ${offsetX}`;
             document.getElementById('val-y').innerText = `Y-Offset: ${offsetY}`;
+            document.getElementById('val-fx').innerText = `X-Faktor: ${factorX.toFixed(2)}`;
+            document.getElementById('val-fy').innerText = `Y-Faktor: ${factorY.toFixed(2)}`;
         }
 
         const textures = {};
@@ -157,16 +212,13 @@
         };
         
         let loadedCount = 0;
-        const totalSources = Object.keys(sources).length;
-
         for (let key in sources) {
             textures[key] = new Image();
             textures[key].src = sources[key];
-            textures[key].onload = () => { loadedCount++; };
-            textures[key].onerror = () => { loadedCount++; };
+            textures[key].onload = () => loadedCount++;
         }
 
-        // Basis-Koordinaten aus dem letzten Versuch
+        // Unveränderte Rohdaten der Hitboxen
         const baseHitboxes = [
             { x: 815,  y: 40,  width: 40,  height: 95 },
             { x: 815,  y: 40,  width: 250, height: 40 },
@@ -187,18 +239,17 @@
         const baseCircleHitboxes = [
             { cx: 917,  cy: 218, radius: 52 },
             { cx: 1208, cy: 218, radius: 52 },
-            { cx: 1062, cy: 354, radius: 52 },
+            { cx: 1062, cy: 354, radius: 52 }, // Center
             { cx: 917,  cy: 491, radius: 52 },
             { cx: 1208, cy: 491, radius: 52 }
         ];
 
-        // Spieler startet im Zentrum des Screens
         let player = {
-            x: 930, 
-            y: 330,  
+            x: 1040, 
+            y: 280,  
             width: 42,  
             height: 54, 
-            speed: 5,
+            speed: 5.5,
             vx: 0,
             vy: 0,
             facingRight: true
@@ -255,24 +306,38 @@
             player.vy = 0;
         });
 
+        // Hilfsfunktion zur dynamischen Matrix-Transformation einer Rechteck-Hitbox
+        function getTransformedRect(box) {
+            // Skaliere die Position relativ zum Pivot-Punkt
+            let rx = pivotX + (box.x - pivotX) * factorX + offsetX;
+            let ry = pivotY + (box.y - pivotY) * factorY + offsetY;
+            // Skaliere die Ausdehnung der Hitbox selbst
+            let rw = box.width * factorX;
+            let rh = box.height * factorY;
+            return { x: rx, y: ry, width: rw, height: rh };
+        }
+
+        // Hilfsfunktion zur dynamischen Matrix-Transformation einer Kreis-Hitbox
+        function getTransformedCircle(circle) {
+            let rcx = pivotX + (circle.cx - pivotX) * factorX + offsetX;
+            let rcy = pivotY + (circle.cy - pivotY) * factorY + offsetY;
+            let rRad = circle.radius * Math.max(factorX, factorY);
+            return { cx: rcx, cy: rcy, radius: rRad };
+        }
+
         function checkRectCollision(rect1, rect2) {
-            // Berechne reale Position der Hitbox inklusive des Live-Offsets ein
-            return rect1.x < rect2.x + offsetX + rect2.width &&
-                   rect1.x + rect1.width > rect2.x + offsetX &&
-                   rect1.y < rect2.y + offsetY + rect2.height &&
-                   rect1.y + rect1.height > rect2.y + offsetY;
+            return rect1.x < rect2.x + rect2.width &&
+                   rect1.x + rect1.width > rect2.x &&
+                   rect1.y < rect2.y + rect2.height &&
+                   rect1.y + rect1.height > rect2.y;
         }
 
         function resolveCircleCollision(playerObj, circle) {
-            // Berechne reale Position des Kreises inklusive des Live-Offsets ein
-            let currentCX = circle.cx + offsetX;
-            let currentCY = circle.cy + offsetY;
+            let closestX = Math.max(playerObj.x, Math.min(circle.cx, playerObj.x + playerObj.width));
+            let closestY = Math.max(playerObj.y, Math.min(circle.cy, playerObj.y + playerObj.height));
 
-            let closestX = Math.max(playerObj.x, Math.min(currentCX, playerObj.x + playerObj.width));
-            let closestY = Math.max(playerObj.y, Math.min(currentCY, playerObj.y + playerObj.height));
-
-            let distanceX = currentCX - closestX;
-            let distanceY = currentCY - closestY;
+            let distanceX = circle.cx - closestX;
+            let distanceY = circle.cy - closestY;
             let distanceSquared = (distanceX * distanceX) + (distanceY * distanceY);
 
             if (distanceSquared < circle.radius * circle.radius) {
@@ -301,34 +366,41 @@
                 player.facingRight = player.vx > 0;
             }
 
-            // X Kollision
+            // Bewegung auf X-Achse & Kollisionsprüfung
             player.x += player.vx;
             for (let box of baseHitboxes) {
-                if (checkRectCollision(player, box)) {
-                    if (player.vx > 0) player.x = box.x + offsetX - player.width;
-                    if (player.vx < 0) player.x = box.x + offsetX + box.width;
+                let tBox = getTransformedRect(box);
+                if (checkRectCollision(player, tBox)) {
+                    if (player.vx > 0) player.x = tBox.x - player.width;
+                    if (player.vx < 0) player.x = tBox.x + tBox.width;
                 }
             }
 
-            // Y Kollision
+            // Bewegung auf Y-Achse & Kollisionsprüfung
             player.y += player.vy;
             for (let box of baseHitboxes) {
-                if (checkRectCollision(player, box)) {
-                    if (player.vy > 0) player.y = box.y + offsetY - player.height;
-                    if (player.vy < 0) player.y = box.y + offsetY + box.height;
+                let tBox = getTransformedRect(box);
+                if (checkRectCollision(player, tBox)) {
+                    if (player.vy > 0) player.y = tBox.y - player.height;
+                    if (player.vy < 0) player.y = tBox.y + tBox.height;
                 }
             }
 
-            // Kreis Kollision
+            // Kreiskollisionen an den skalierten Tischen auflösen
             for (let circle of baseCircleHitboxes) {
-                resolveCircleCollision(player, circle);
+                let tCircle = getTransformedCircle(circle);
+                resolveCircleCollision(player, tCircle);
             }
 
-            // Starre Kamera zentriert auf die 1920x1080 Map
-            camera.x = (mapWidth - canvas.width) / 2;
-            camera.y = (mapHeight - canvas.height) / 2;
+            // Dynamische Kamera reaktiviert: Folgt der Spielfigur weich
+            camera.x = player.x + player.width / 2 - canvas.width / 2;
+            camera.y = player.y + player.height / 2 - canvas.height / 2;
+
+            // Grenzen der Kamera auf Kartengröße festsetzen
             if (camera.x < 0) camera.x = 0;
             if (camera.y < 0) camera.y = 0;
+            if (camera.x > mapWidth - canvas.width) camera.x = Math.max(0, mapWidth - canvas.width);
+            if (camera.y > mapHeight - canvas.height) camera.y = Math.max(0, mapHeight - canvas.height);
         }
 
         function draw() {
@@ -337,7 +409,7 @@
             ctx.save();
             ctx.translate(-camera.x, -camera.y);
 
-            // Map
+            // Hintergrund-Map rendern
             if (textures.map && textures.map.complete && textures.map.naturalWidth !== 0) {
                 ctx.drawImage(textures.map, 0, 0, mapWidth, mapHeight);
             } else {
@@ -345,18 +417,20 @@
                 ctx.fillRect(0, 0, mapWidth, mapHeight);
             }
 
-            // Rote Debug-Layer inklusive des Live-Offsets gezeichnet
+            // Rote Debug-Layer live transformiert rendern
             ctx.fillStyle = 'rgba(255, 0, 0, 0.4)';
             for (let box of baseHitboxes) {
-                ctx.fillRect(box.x + offsetX, box.y + offsetY, box.width, box.height);
+                let tBox = getTransformedRect(box);
+                ctx.fillRect(tBox.x, tBox.y, tBox.width, tBox.height);
             }
             for (let circle of baseCircleHitboxes) {
+                let tCircle = getTransformedCircle(circle);
                 ctx.beginPath();
-                ctx.arc(circle.cx + offsetX, circle.cy + offsetY, circle.radius, 0, Math.PI * 2);
+                ctx.arc(tCircle.cx, tCircle.cy, tCircle.radius, 0, Math.PI * 2);
                 ctx.fill();
             }
 
-            // Spieler
+            // Spielerfigur rendern
             ctx.save();
             ctx.translate(player.x + player.width / 2, player.y + player.height / 2);
             if (!player.facingRight) ctx.scale(-1, 1);
