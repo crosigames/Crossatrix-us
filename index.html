@@ -65,9 +65,6 @@
             box-shadow: 0 0 10px rgba(0,0,0,0.5);
             cursor: pointer;
         }
-        #action-btn.active {
-            background: rgba(240, 190, 20, 0.8);
-        }
     </style>
 </head>
 <body>
@@ -96,51 +93,51 @@
         let texturesLoaded = 0;
         const totalTextures = Object.keys(TEXTURE_PATHS).length;
 
-        // Koordinatensystem angepasst an die hochauflösende Widescreen-Map
+        // Echte native Dimensionen der Widescreen-Map
         const mapWidth = 2560;
         const mapHeight = 1440;
 
         // ==========================================
-        // COLLISION DATA (Präzise re-kalibriert)
+        // COLLISION DATA (Präzise auf HD-Map abgestimmt)
         // ==========================================
         
-        // Rechteckige Wände für die Cafeteria-Umgebung
+        // Wände der Cafeteria (angepasst an das tiefere Spacing der HD-Map)
         const hitboxes = [
-            // Außenränder der Map
+            // Außenränder der Gesamtkarte
             { x: 0, y: 0, width: 2560, height: 40 },                  
             { x: 0, y: 1400, width: 2560, height: 40 },    
             { x: 0, y: 0, width: 40, height: 1440 },                  
             { x: 2520, y: 0, width: 40, height: 1440 },    
 
-            // Cafeteria Raumstrukturen (Zentriert um X: 1350)
-            { x: 1130, y: 40,  width: 440, height: 50 },   // Flache Oberkante
-            { x: 980,  y: 80,  width: 150, height: 150 },  // Schräge Wand links oben
-            { x: 1570, y: 80,  width: 150, height: 150 },  // Schräge Wand rechts oben
-            { x: 980,  y: 230, width: 40,  height: 250 },  // Gerade Wand links
-            { x: 1720, y: 230, width: 40,  height: 250 },  // Gerade Wand rechts
-            { x: 980,  y: 480, width: 200, height: 100 },  // Schräge unten links
-            { x: 1520, y: 480, width: 240, height: 100 },  // Schräge unten rechts
+            // Cafeteria Raumstrukturen
+            { x: 1240, y: 120, width: 360, height: 60 },   // Obere flache Kante
+            { x: 1020, y: 120, width: 220, height: 120 },  // Ecke oben links
+            { x: 1600, y: 120, width: 220, height: 120 },  // Ecke oben rechts
+            { x: 1020, y: 240, width: 60,  height: 360 },  // Gerade Wand links
+            { x: 1760, y: 240, width: 60,  height: 360 },  // Gerade Wand rechts
+            { x: 1020, y: 600, width: 220, height: 140 },  // Ecke unten links
+            { x: 1600, y: 600, width: 220, height: 140 },  // Ecke unten rechts
             
-            // Unterer Ausgang / Flur-Wände
-            { x: 1180, y: 580, width: 110, height: 40 },   // Untere Wand links vom Ausgang
-            { x: 1410, y: 580, width: 110, height: 40 },   // Untere Wand rechts vom Ausgang
-            { x: 1280, y: 620, width: 20,  height: 400 },  // Linke Flurwand
-            { x: 1400, y: 620, width: 20,  height: 400 }   // Rechte Flurwand
+            // Unterer Ausgang Richtung Storage
+            { x: 1240, y: 740, width: 110, height: 60 },   // Untere Wand links vom Flur
+            { x: 1490, y: 740, width: 110, height: 60 },   // Untere Wand rechts vom Flur
+            { x: 1330, y: 800, width: 20,  height: 400 },  // Linke Flurwand unten
+            { x: 1490, y: 800, width: 20,  height: 400 }   // Rechte Flurwand unten
         ];
 
-        // Runde Hitboxen (Exakt deckungsgleich mit den 5 Tischen der neuen Map)
+        // Runde Hitboxen (Exakt deckungsgleich zentriert auf den 5 Tischen)
         const circleHitboxes = [
-            { cx: 1170, cy: 160, radius: 55 }, // Tisch oben links
-            { cx: 1530, cy: 160, radius: 55 }, // Tisch oben rechts
-            { cx: 1350, cy: 300, radius: 55 }, // Tisch Mitte
-            { cx: 1170, cy: 440, radius: 55 }, // Tisch unten links
-            { cx: 1530, cy: 440, radius: 55 }  // Tisch unten rechts
+            { cx: 1240, cy: 300, radius: 68 }, // Tisch oben links
+            { cx: 1600, cy: 300, radius: 68 }, // Tisch oben rechts
+            { cx: 1420, cy: 470, radius: 68 }, // Tisch Mitte (Emergency Button)
+            { cx: 1240, cy: 640, radius: 68 }, // Tisch unten links
+            { cx: 1600, cy: 640, radius: 68 }  // Tisch unten rechts
         ];
 
         // Spieler-Setup
         let player = {
-            x: 1320, 
-            y: 370, // Spawnt jetzt direkt in der Cafeteria unter dem mittleren Tisch
+            x: 1390, 
+            y: 560, // Spawnt jetzt perfekt frei beweglich direkt unter dem mittleren Tisch
             width: 55,  
             height: 70, 
             speed: 6,
@@ -152,7 +149,7 @@
         let camera = { x: 0, y: 0 };
         const keys = {};
 
-        // Touch-Steuerung
+        // Joystick-Variablen
         const joystickZone = document.getElementById('joystick-zone');
         const joystickKnob = document.getElementById('joystick-knob');
         let joystickActive = false;
@@ -168,7 +165,6 @@
                     if (texturesLoaded === totalTextures) initGame();
                 };
                 textures[key].onerror = () => {
-                    console.warn(`Fehler beim Laden von: ${TEXTURE_PATHS[key]}`);
                     texturesLoaded++;
                     if (texturesLoaded === totalTextures) initGame();
                 };
@@ -186,7 +182,7 @@
         window.addEventListener('keydown', e => keys[e.key.toLowerCase()] = true);
         window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
 
-        // Joystick Event-Handling
+        // Mobile Touch Controls (Joystick)
         joystickZone.addEventListener('touchstart', e => {
             joystickActive = true;
             const rect = joystickZone.getBoundingClientRect();
@@ -219,10 +215,6 @@
             player.vy = 0;
         });
 
-        document.getElementById('action-btn').addEventListener('touchstart', (e) => {
-            e.preventDefault();
-        });
-
         function checkRectCollision(rect1, rect2) {
             return rect1.x < rect2.x + rect2.width &&
                    rect1.x + rect1.width > rect2.x &&
@@ -252,6 +244,7 @@
         }
 
         function update() {
+            // Tastatur-Steuerung Fallback
             if (keys['w'] || keys['arrowup']) player.vy = -player.speed;
             else if (keys['s'] || keys['arrowdown']) player.vy = player.speed;
             else if (!joystickActive) player.vy = 0;
@@ -264,7 +257,7 @@
                 player.facingRight = player.vx > 0;
             }
 
-            // X-Achse
+            // X-Achsen Kollision
             player.x += player.vx;
             for (let box of hitboxes) {
                 if (checkRectCollision(player, box)) {
@@ -273,7 +266,7 @@
                 }
             }
 
-            // Y-Achse
+            // Y-Achsen Kollision
             player.y += player.vy;
             for (let box of hitboxes) {
                 if (checkRectCollision(player, box)) {
@@ -282,12 +275,12 @@
                 }
             }
 
-            // Kreis-Kollision (Tische)
+            // Kreis-Kollisionen anwenden
             for (let circle of circleHitboxes) {
                 resolveCircleCollision(player, circle);
             }
 
-            // Kamera-Fokus
+            // Dynamische Kamera-Führung
             camera.x = player.x + player.width / 2 - canvas.width / 2;
             camera.y = player.y + player.height / 2 - canvas.height / 2;
 
@@ -306,7 +299,7 @@
             ctx.save();
             ctx.translate(-camera.x, -camera.y);
 
-            // 1. Map zeichnen
+            // 1. Hintergrund-Map rendern
             if (textures.map && textures.map.complete && textures.map.naturalWidth !== 0) {
                 ctx.drawImage(textures.map, 0, 0, mapWidth, mapHeight);
             } else {
@@ -314,7 +307,7 @@
                 ctx.fillRect(0, 0, mapWidth, mapHeight);
             }
 
-            // --- HITBOX VISUALISIERUNG ---
+            // --- HITBOX VISUALISIERUNG (Rot transparent) ---
             ctx.fillStyle = 'rgba(255, 0, 0, 0.4)';
             for (let box of hitboxes) {
                 ctx.fillRect(box.x, box.y, box.width, box.height);
@@ -325,7 +318,7 @@
                 ctx.fill();
             }
 
-            // 2. Spieler zeichnen
+            // 2. Spieler rendern
             ctx.save();
             ctx.translate(player.x + player.width / 2, player.y + player.height / 2);
             
