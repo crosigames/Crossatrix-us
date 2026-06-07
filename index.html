@@ -85,45 +85,58 @@
         // TEXTURE CONFIGURATION (Points to assets/)
         // ==========================================
         const TEXTURE_PATHS = {
-            map: 'assets/IMG_0960.webp',        // Deine Map
+            map: 'assets/Map.png',              // Name auf Map.png aktualisiert
             player: 'assets/IMG_0964.webp',     // Dein animierter Charakter
         };
 
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
 
-        // Texturen-Ladesystem
         const textures = {};
         let texturesLoaded = 0;
         const totalTextures = Object.keys(TEXTURE_PATHS).length;
 
-        // Feste virtuelle Map-Größe, damit Koordinaten IMMER stimmen!
+        // Feste virtuelle Map-Größe für exakte Kollisionen
         const mapWidth = 2400;
         const mapHeight = 1400;
 
         // ==========================================
-        // COLLISION BOXES (Method 2: Rectangles)
+        // COLLISION DATA
         // ==========================================
+        
+        // Rechteckige Hitboxen (Wände und Grenzen)
         const hitboxes = [
-            // --- Außenwände (Fest auf die 2400x1400 Map skaliert) ---
-            { x: 0, y: 0, width: 2400, height: 140 },                  
-            { x: 0, y: 1280, width: 2400, height: 120 },    
-            { x: 0, y: 0, width: 220, height: 1400 },                  
-            { x: 2180, y: 0, width: 220, height: 1400 },    
+            // --- Äußere Weltbegrenzung ---
+            { x: 0, y: 0, width: 2400, height: 40 },                  
+            { x: 0, y: 1360, width: 2400, height: 40 },    
+            { x: 0, y: 0, width: 40, height: 1400 },                  
+            { x: 2360, y: 0, width: 40, height: 1400 },    
 
-            // --- Cafeteria Tische (Mitte oben) ---
-            { x: 1050, y: 220, width: 100, height: 100 }, 
-            { x: 1250, y: 220, width: 100, height: 100 },
-            { x: 1150, y: 350, width: 100, height: 100 }
+            // --- Wände & Begrenzungen der Cafeteria ---
+            { x: 1000, y: 40,  width: 580, height: 55 },   // Oberste Deckenkante
+            { x: 970,  y: 95,  width: 45,  height: 480 },  // Linke Wand
+            { x: 1565, y: 95,  width: 45,  height: 250 },  // Rechte Wand oben
+            { x: 1610, y: 345, width: 140, height: 45 },   // Obere Kante Weapons-Flur
+            { x: 970,  y: 575, width: 170, height: 45 },   // Untere linke Wand
+            { x: 1440, y: 575, width: 170, height: 45 }    // Untere rechte Wand
+        ];
+
+        // Runde Hitboxen (Für die Tische) -> Format: { cx, cy, radius }
+        const circleHitboxes = [
+            { cx: 1115, cy: 290, radius: 62 }, // Tisch oben links
+            { cx: 1465, cy: 290, radius: 62 }, // Tisch oben rechts
+            { cx: 1290, cy: 450, radius: 62 }, // Tisch Mitte
+            { cx: 1115, cy: 610, radius: 62 }, // Tisch unten links
+            { cx: 1465, cy: 610, radius: 62 }  // Tisch unten rechts
         ];
 
         // Spieler-Setup
         let player = {
-            x: 1180, // Startet jetzt exakt in der Mitte der Cafeteria
-            y: 520,
-            width: 60,  
-            height: 75, 
-            speed: 5,
+            x: 1260, 
+            y: 540,
+            width: 55,  
+            height: 70, 
+            speed: 5.5,
             vx: 0,
             vy: 0,
             facingRight: true
@@ -163,7 +176,6 @@
         window.addEventListener('resize', resizeCanvas);
         resizeCanvas();
 
-        // Tastatur-Abfrage
         window.addEventListener('keydown', e => keys[e.key.toLowerCase()] = true);
         window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
 
@@ -206,16 +218,38 @@
             console.log("USE triggered");
         });
 
-        // Kollisions-Prüfung (AABB)
-        function checkCollision(rect1, rect2) {
+        // Kollisions-Prüfung: Rechteck gegen Rechteck (AABB)
+        function checkRectCollision(rect1, rect2) {
             return rect1.x < rect2.x + rect2.width &&
                    rect1.x + rect1.width > rect2.x &&
                    rect1.y < rect2.y + rect2.height &&
                    rect1.y + rect1.height > rect2.y;
         }
 
+        // Kollisions-Prüfung: Rechteck (Spieler) gegen Kreis (Tisch)
+        function resolveCircleCollision(playerObj, circle) {
+            let closestX = Math.max(playerObj.x, Math.min(circle.cx, playerObj.x + playerObj.width));
+            let closestY = Math.max(playerObj.y, Math.min(circle.cy, playerObj.y + playerObj.height));
+
+            let distanceX = circle.cx - closestX;
+            let distanceY = circle.cy - closestY;
+            let distanceSquared = (distanceX * distanceX) + (distanceY * distanceY);
+
+            if (distanceSquared < circle.radius * circle.radius) {
+                let distance = Math.sqrt(distanceSquared);
+                if (distance === 0) return;
+
+                let overlap = circle.radius - distance;
+                
+                let dirX = distanceX / distance;
+                let dirY = distanceY / distance;
+
+                playerObj.x -= dirX * overlap;
+                playerObj.y -= dirY * overlap;
+            }
+        }
+
         function update() {
-            // Tastatur-Input überschreibt Joystick-Input
             if (keys['w'] || keys['arrowup']) player.vy = -player.speed;
             else if (keys['s'] || keys['arrowdown']) player.vy = player.speed;
             else if (!joystickActive) player.vy = 0;
@@ -228,29 +262,34 @@
                 player.facingRight = player.vx > 0;
             }
 
-            // X-Achse bewegen & Kollisionen auflösen
+            // X-Achse
             player.x += player.vx;
             for (let box of hitboxes) {
-                if (checkCollision(player, box)) {
+                if (checkRectCollision(player, box)) {
                     if (player.vx > 0) player.x = box.x - player.width;
                     if (player.vx < 0) player.x = box.x + box.width;
                 }
             }
 
-            // Y-Achse bewegen & Kollisionen auflösen
+            // Y-Achse
             player.y += player.vy;
             for (let box of hitboxes) {
-                if (checkCollision(player, box)) {
+                if (checkRectCollision(player, box)) {
                     if (player.vy > 0) player.y = box.y - player.height;
                     if (player.vy < 0) player.y = box.y + box.height;
                 }
+            }
+
+            // Kreis-Kollisionen (Tische)
+            for (let circle of circleHitboxes) {
+                resolveCircleCollision(player, circle);
             }
 
             // Kamera auf Spieler zentrieren
             camera.x = player.x + player.width / 2 - canvas.width / 2;
             camera.y = player.y + player.height / 2 - canvas.height / 2;
 
-            // Kamera-Begrenzung am Map-Rand (Verhindert Out-of-Bounds Ruckeln)
+            // Kamera-Begrenzung am Map-Rand
             const maxCamX = mapWidth - canvas.width;
             const maxCamY = mapHeight - canvas.height;
 
@@ -266,7 +305,7 @@
             ctx.save();
             ctx.translate(-camera.x, -camera.y);
 
-            // 1. Hintergrund / Map zeichnen (Wird jetzt IMMER auf mapWidth/mapHeight gestreckt!)
+            // 1. Hintergrund / Map zeichnen
             if (textures.map && textures.map.complete && textures.map.naturalWidth !== 0) {
                 ctx.drawImage(textures.map, 0, 0, mapWidth, mapHeight);
             } else {
@@ -274,17 +313,21 @@
                 ctx.fillRect(0, 0, mapWidth, mapHeight);
             }
 
-            // --- HITBOXEN-VISUALISIERUNG (Zeigt rote Blöcke auf den Wänden an) ---
+            // --- HITBOXEN-VISUALISIERUNG (Rot/Transparent) ---
             ctx.fillStyle = 'rgba(255, 0, 0, 0.4)';
             for (let box of hitboxes) {
                 ctx.fillRect(box.x, box.y, box.width, box.height);
+            }
+            for (let circle of circleHitboxes) {
+                ctx.beginPath();
+                ctx.arc(circle.cx, circle.cy, circle.radius, 0, Math.PI * 2);
+                ctx.fill();
             }
 
             // 2. Animierten Charakter zeichnen
             ctx.save();
             ctx.translate(player.x + player.width / 2, player.y + player.height / 2);
             
-            // Textur horizontal spiegeln, wenn der Charakter nach links läuft
             if (!player.facingRight) ctx.scale(-1, 1);
 
             if (textures.player && textures.player.complete && textures.player.naturalWidth !== 0) {
