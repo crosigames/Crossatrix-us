@@ -96,44 +96,51 @@
         let texturesLoaded = 0;
         const totalTextures = Object.keys(TEXTURE_PATHS).length;
 
-        // Natives 16:9 Koordinatensystem für die neue HD-Map
+        // Koordinatensystem angepasst an die hochauflösende Widescreen-Map
         const mapWidth = 2560;
         const mapHeight = 1440;
 
         // ==========================================
-        // COLLISION DATA (Präzise berechnet auf 2560x1440)
+        // COLLISION DATA (Präzise re-kalibriert)
         // ==========================================
         
-        // Wände und Raumstrukturen der Cafeteria
+        // Rechteckige Wände für die Cafeteria-Umgebung
         const hitboxes = [
-            // Außenbegrenzungen
+            // Außenränder der Map
             { x: 0, y: 0, width: 2560, height: 40 },                  
             { x: 0, y: 1400, width: 2560, height: 40 },    
             { x: 0, y: 0, width: 40, height: 1440 },                  
             { x: 2520, y: 0, width: 40, height: 1440 },    
 
-            // Cafeteria Raum-Strukturen
-            { x: 1110, y: 40,  width: 535, height: 75 },   // Obere Kante
-            { x: 995,  y: 115, width: 115, height: 260 },  // Schräge Wand links oben
-            { x: 1645, y: 115, width: 115, height: 260 },  // Schräge Wand rechts oben
-            { x: 1760, y: 375, width: 150, height: 50 },   // Oberkante Flur zu Weapons
-            { x: 995,  y: 560, width: 200, height: 50 },   // Untere Wand links (MedBay-Flur)
-            { x: 1550, y: 560, width: 210, height: 50 }    // Untere Wand rechts (O2-Flur)
+            // Cafeteria Raumstrukturen (Zentriert um X: 1350)
+            { x: 1130, y: 40,  width: 440, height: 50 },   // Flache Oberkante
+            { x: 980,  y: 80,  width: 150, height: 150 },  // Schräge Wand links oben
+            { x: 1570, y: 80,  width: 150, height: 150 },  // Schräge Wand rechts oben
+            { x: 980,  y: 230, width: 40,  height: 250 },  // Gerade Wand links
+            { x: 1720, y: 230, width: 40,  height: 250 },  // Gerade Wand rechts
+            { x: 980,  y: 480, width: 200, height: 100 },  // Schräge unten links
+            { x: 1520, y: 480, width: 240, height: 100 },  // Schräge unten rechts
+            
+            // Unterer Ausgang / Flur-Wände
+            { x: 1180, y: 580, width: 110, height: 40 },   // Untere Wand links vom Ausgang
+            { x: 1410, y: 580, width: 110, height: 40 },   // Untere Wand rechts vom Ausgang
+            { x: 1280, y: 620, width: 20,  height: 400 },  // Linke Flurwand
+            { x: 1400, y: 620, width: 20,  height: 400 }   // Rechte Flurwand
         ];
 
-        // Runde Hitboxen für die Tische (Exakt mittig platziert)
+        // Runde Hitboxen (Exakt deckungsgleich mit den 5 Tischen der neuen Map)
         const circleHitboxes = [
-            { cx: 1202, cy: 310, radius: 88 }, // Tisch oben links
-            { cx: 1548, cy: 310, radius: 88 }, // Tisch oben rechts
-            { cx: 1375, cy: 500, radius: 88 }, // Tisch Mitte
-            { cx: 1202, cy: 695, radius: 88 }, // Tisch unten links
-            { cx: 1548, cy: 695, radius: 88 }  // Tisch unten rechts
+            { cx: 1170, cy: 160, radius: 55 }, // Tisch oben links
+            { cx: 1530, cy: 160, radius: 55 }, // Tisch oben rechts
+            { cx: 1350, cy: 300, radius: 55 }, // Tisch Mitte
+            { cx: 1170, cy: 440, radius: 55 }, // Tisch unten links
+            { cx: 1530, cy: 440, radius: 55 }  // Tisch unten rechts
         ];
 
         // Spieler-Setup
         let player = {
-            x: 1345, 
-            y: 600, // Spawnt direkt unter dem zentralen Tisch
+            x: 1320, 
+            y: 370, // Spawnt jetzt direkt in der Cafeteria unter dem mittleren Tisch
             width: 55,  
             height: 70, 
             speed: 6,
@@ -171,7 +178,7 @@
         function resizeCanvas() {
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
-            ctx.imageSmoothingEnabled = true; // Höhere Qualität für die scharfe Map
+            ctx.imageSmoothingEnabled = true;
         }
         window.addEventListener('resize', resizeCanvas);
         resizeCanvas();
@@ -212,13 +219,10 @@
             player.vy = 0;
         });
 
-        // Use-Interaktion
         document.getElementById('action-btn').addEventListener('touchstart', (e) => {
             e.preventDefault();
-            console.log("USE ausgelöst");
         });
 
-        // AABB Kollisionsprüfung
         function checkRectCollision(rect1, rect2) {
             return rect1.x < rect2.x + rect2.width &&
                    rect1.x + rect1.width > rect2.x &&
@@ -226,7 +230,6 @@
                    rect1.y + rect1.height > rect2.y;
         }
 
-        // Kreiskollision auflösen
         function resolveCircleCollision(playerObj, circle) {
             let closestX = Math.max(playerObj.x, Math.min(circle.cx, playerObj.x + playerObj.width));
             let closestY = Math.max(playerObj.y, Math.min(circle.cy, playerObj.y + playerObj.height));
@@ -279,7 +282,7 @@
                 }
             }
 
-            // Kreis-Kollision anwenden
+            // Kreis-Kollision (Tische)
             for (let circle of circleHitboxes) {
                 resolveCircleCollision(player, circle);
             }
@@ -303,7 +306,7 @@
             ctx.save();
             ctx.translate(-camera.x, -camera.y);
 
-            // 1. Render Map
+            // 1. Map zeichnen
             if (textures.map && textures.map.complete && textures.map.naturalWidth !== 0) {
                 ctx.drawImage(textures.map, 0, 0, mapWidth, mapHeight);
             } else {
@@ -322,7 +325,7 @@
                 ctx.fill();
             }
 
-            // 2. Render Spieler
+            // 2. Spieler zeichnen
             ctx.save();
             ctx.translate(player.x + player.width / 2, player.y + player.height / 2);
             
