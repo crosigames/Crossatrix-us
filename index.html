@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Among Us Clone - Gameplay</title>
+    <title>Among Us Clone - Full Map Painter</title>
     <style>
         * {
             box-sizing: border-box;
@@ -24,14 +24,67 @@
             width: 100vw;
             height: 100vh;
         }
+        #editor-panel {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.9);
+            color: #fff;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 12px;
+            z-index: 100;
+            border: 1px solid #00ffcc;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.6);
+            width: 280px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .panel-title {
+            font-weight: bold;
+            color: #00ffcc;
+            text-transform: uppercase;
+            font-size: 11px;
+            letter-spacing: 0.5px;
+        }
+        button {
+            background: #333;
+            color: white;
+            border: 1px solid #555;
+            padding: 6px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 11px;
+        }
+        button:active {
+            background: #00ffcc;
+            color: #000;
+        }
+        #json-output {
+            width: 100%;
+            height: 110px;
+            background: #151518;
+            color: #00ff66;
+            border: 1px solid #444;
+            font-family: monospace;
+            font-size: 10px;
+            padding: 5px;
+            resize: none;
+            white-space: pre;
+            overflow-y: scroll;
+            -webkit-user-select: text;
+            user-select: text;
+        }
         #joystick-zone {
             position: absolute;
             bottom: 40px;
             left: 40px;
-            width: 120px;
-            height: 120px;
-            background: rgba(255, 255, 255, 0.1);
-            border: 2px solid rgba(255, 255, 255, 0.3);
+            width: 110px;
+            height: 110px;
+            background: rgba(255, 255, 255, 0.08);
+            border: 2px solid rgba(255, 255, 255, 0.2);
             border-radius: 50%;
             display: flex;
             align-items: center;
@@ -40,41 +93,32 @@
             z-index: 10;
         }
         #joystick-knob {
-            width: 50px;
-            height: 50px;
-            background: rgba(255, 255, 255, 0.5);
+            width: 44px;
+            height: 44px;
+            background: rgba(255, 255, 255, 0.4);
             border-radius: 50%;
-        }
-        #action-btn {
-            position: absolute;
-            bottom: 50px;
-            right: 50px;
-            width: 80px;
-            height: 80px;
-            background: rgba(180, 180, 180, 0.4);
-            border: 3px solid #fff;
-            border-radius: 50%;
-            color: white;
-            font-weight: bold;
-            font-size: 16px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            touch-action: none;
-            box-shadow: 0 0 10px rgba(0,0,0,0.5);
-            z-index: 10;
         }
     </style>
 </head>
 <body>
+
+    <div id="editor-panel">
+        <div class="panel-title">🗺️ Full-Map Line Painter</div>
+        <div style="color: #aaa; font-size: 10px; line-height: 1.3;">
+            Grün = Cafeteria (gesichert). Ziehe rote Linien für alle anderen Räume.
+        </div>
+        <button onclick="deleteLastWall()">Letzte Linie löschen</button>
+        <button onclick="clearAllWalls()" style="background: #552222; border-color: #773333;">Alle neuen Linien löschen</button>
+        
+        <div style="font-weight: bold; margin-top: 4px; font-size: 11px;">Gesamt-JSON (inkl. Cafeteria):</div>
+        <textarea id="json-output" readonly onclick="this.select(); document.execCommand('copy'); alert('Komplette Map-JSON kopiert!');">[ ]</textarea>
+    </div>
 
     <canvas id="gameCanvas"></canvas>
     
     <div id="joystick-zone">
         <div id="joystick-knob"></div>
     </div>
-    
-    <div id="action-btn">USE</div>
 
     <script>
         const canvas = document.getElementById('gameCanvas');
@@ -84,8 +128,8 @@
         const mapHeight = 1080;
         const wallThickness = 15;
 
-        // Deine exakten, gemalten Wanddaten aus dem JSON
-        const wallLines = [
+        // Deine fertig gemalten Cafeteria-Wände als feste Basis
+        const cafLines = [
             { "x1": 1206, "y1": 34,  "x2": 1333, "y2": 165 },
             { "x1": 1326, "y1": 146, "x2": 1324, "y2": 215 },
             { "x1": 1198, "y1": 35,  "x2": 901,  "y2": 33  },
@@ -99,7 +143,10 @@
             { "x1": 1322, "y1": 270, "x2": 1326, "y2": 361 }
         ];
 
-        // Deine perfekten, kalibrierten Tischeinstellungen
+        // Hier landen alle neuen Räume
+        let newLines = [];
+
+        // Kalibrierte Tische als Orientierung
         const tableOffsetX = 20;
         const tableOffsetY = -110;
         const tableFactorX = 0.71;
@@ -115,43 +162,32 @@
             { cx: 1208, cy: 491, radius: 52 }
         ];
 
-        // Berechne die transformierten Kreis-Hitboxen vorab
-        const finalTables = baseCircleHitboxes.map(circle => {
+        function getTransformedCircle(circle) {
             let rcx = pivotX + (circle.cx - pivotX) * tableFactorX + tableOffsetX;
             let rcy = pivotY + (circle.cy - pivotY) * tableFactorY + tableOffsetY;
             let rRad = circle.radius * Math.max(tableFactorX, tableFactorY);
             return { cx: rcx, cy: rcy, radius: rRad };
-        });
+        }
 
-        // Texturen-Setup
-        const textures = {};
-        const sources = {
-            map: 'assets/Map.png',
-            player: 'assets/IMG_0964.webp'
+        // Schnellerer Tracker für die gesamte Map-Erkundung
+        let player = {
+            x: 1040, 
+            y: 280,  
+            vx: 0,
+            vy: 0,
+            speed: 10 // Erhöhte Geschwindigkeit zum Navigieren
         };
-        
+
+        let camera = { x: 200, y: 100 };
+
+        const textures = {};
+        const sources = { map: 'assets/Map.png' };
         for (let key in sources) {
             textures[key] = new Image();
             textures[key].src = sources[key];
         }
 
-        // Spieler-Setup (Behandlung als Kreis für Vektor-Kollisionen)
-        let player = {
-            x: 1060, // Start im Zentrum der Cafeteria
-            y: 260,  
-            radius: 20, 
-            width: 42,   // Render-Breite
-            height: 54,  // Render-Höhe
-            speed: 5,
-            vx: 0,
-            vy: 0,
-            facingRight: true
-        };
-
-        let camera = { x: 0, y: 0 };
-        const keys = {};
-
-        // UI Touch-Handling
+        // Joystick-Handling
         const joystickZone = document.getElementById('joystick-zone');
         const joystickKnob = document.getElementById('joystick-knob');
         let joystickActive = false;
@@ -164,14 +200,12 @@
         window.addEventListener('resize', resizeCanvas);
         resizeCanvas();
 
-        window.addEventListener('keydown', e => keys[e.key.toLowerCase()] = true);
-        window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
-
         joystickZone.addEventListener('touchstart', e => {
             joystickActive = true;
             const rect = joystickZone.getBoundingClientRect();
             joystickStartX = rect.left + rect.width / 2;
             joystickStartY = rect.top + rect.height / 2;
+            e.stopPropagation(); 
         });
 
         window.addEventListener('touchmove', e => {
@@ -180,7 +214,7 @@
             let dx = touch.clientX - joystickStartX;
             let dy = touch.clientY - joystickStartY;
             const distance = Math.sqrt(dx * dx + dy * dy);
-            const maxRadius = 40;
+            const maxRadius = 35;
 
             if (distance > maxRadius) {
                 dx = (dx / distance) * maxRadius;
@@ -190,6 +224,7 @@
             joystickKnob.style.transform = `translate(${dx}px, ${dy}px)`;
             player.vx = (dx / maxRadius) * player.speed;
             player.vy = (dy / maxRadius) * player.speed;
+            e.stopPropagation();
         });
 
         window.addEventListener('touchend', () => {
@@ -199,87 +234,75 @@
             player.vy = 0;
         });
 
-        // Mathematische Auflösung für Liniensegment-Kollision (Vektorbasiert)
-        function resolveLineCollision(p, line) {
-            let dx = line.x2 - line.x1;
-            let dy = line.y2 - line.y1;
-            let lenSq = dx * dx + dy * dy;
-            if (lenSq === 0) return;
+        // --- DRAW LOGIC ---
+        let isDrawing = false;
+        let startX = 0, startY = 0;
+        let currentX = 0, currentY = 0;
 
-            // Projektion des Spieler-Mittelpunkts auf die unendliche Gerade
-            let t = ((p.x - line.x1) * dx + (p.y - line.y1) * dy) / lenSq;
-            // Begrenzung auf das reale Liniensegment zwischen Start- und Endpunkt
-            t = Math.max(0, Math.min(1, t));
+        window.addEventListener('touchstart', e => {
+            if (e.target.closest('#editor-panel') || e.target.closest('#joystick-zone')) return;
+            
+            isDrawing = true;
+            const touch = e.touches[0];
+            startX = Math.round(touch.clientX + camera.x);
+            startY = Math.round(touch.clientY + camera.y);
+            currentX = startX;
+            currentY = startY;
+        });
 
-            // Kürzester Punkt auf dem Segment zum Spieler
-            let closestX = line.x1 + t * dx;
-            let closestY = line.y1 + t * dy;
+        window.addEventListener('touchmove', e => {
+            if (!isDrawing) return;
+            const touch = e.touches[0];
+            currentX = Math.round(touch.clientX + camera.x);
+            currentY = Math.round(touch.clientY + camera.y);
+        });
 
-            let distVecX = p.x - closestX;
-            let distVecY = p.y - closestY;
-            let distance = Math.sqrt(distVecX * distVecX + distVecY * distVecY);
+        window.addEventListener('touchend', e => {
+            if (!isDrawing) return;
+            isDrawing = false;
 
-            // Erlaubter Minimalabstand (Spielerradius + halbe Wandstärke)
-            let minDist = p.radius + (wallThickness / 2);
+            let dx = currentX - startX;
+            let dy = currentY - startY;
+            let len = Math.sqrt(dx * dx + dy * dy);
 
-            if (distance < minDist) {
-                if (distance === 0) return;
-                let overlap = minDist - distance;
-                // Schiebe Spieler entlang des Abstandsvektors heraus
-                p.x += (distVecX / distance) * overlap;
-                p.y += (distVecY / distance) * overlap;
+            if (len > 10) {
+                newLines.push({
+                    x1: startX,
+                    y1: startY,
+                    x2: currentX,
+                    y2: currentY
+                });
+                updateJSONOutput();
+            }
+        });
+
+        function deleteLastWall() {
+            newLines.pop();
+            updateJSONOutput();
+        }
+
+        function clearAllWalls() {
+            if(confirm("Alle neu gezeichneten Linien löschen?")) {
+                newLines = [];
+                updateJSONOutput();
             }
         }
 
-        // Kreis-Kollision für die Tische
-        function resolveCircleCollision(p, circle) {
-            let dx = p.x - circle.cx;
-            let dy = p.y - circle.cy;
-            let distance = Math.sqrt(dx * dx + dy * dy);
-            let minDist = p.radius + circle.radius;
-
-            if (distance < minDist) {
-                if (distance === 0) return;
-                let overlap = minDist - distance;
-                p.x += (dx / distance) * overlap;
-                p.y += (dy / distance) * overlap;
-            }
+        function updateJSONOutput() {
+            // Kombiniert das bestehende Cafeteria-JSON direkt mit den neuen Räumen
+            const fullMapArray = [...cafLines, ...newLines];
+            document.getElementById('json-output').value = JSON.stringify(fullMapArray, null, 2);
         }
 
         function update() {
-            if (keys['w'] || keys['arrowup']) player.vy = -player.speed;
-            else if (keys['s'] || keys['arrowdown']) player.vy = player.speed;
-            else if (!joystickActive) player.vy = 0;
-
-            if (keys['a'] || keys['arrowleft']) { player.vx = -player.speed; player.facingRight = false; }
-            else if (keys['d'] || keys['arrowright']) { player.vx = player.speed; player.facingRight = true; }
-            else if (!joystickActive) player.vx = 0;
-
-            if (joystickActive && player.vx !== 0) {
-                player.facingRight = player.vx > 0;
-            }
-
-            // Bewegung anwenden
             player.x += player.vx;
             player.y += player.vy;
 
-            // Kollisionsabfragen gegen alle Linienwände laufen lassen
-            for (let line of wallLines) {
-                resolveLineCollision(player, line);
-            }
-
-            // Kollisionsabfragen gegen Tische laufen lassen
-            for (let table of finalTables) {
-                resolveCircleCollision(player, table);
-            }
-
-            // Map-Begrenzung absolut
             if (player.x < 0) player.x = 0;
             if (player.y < 0) player.y = 0;
             if (player.x > mapWidth) player.x = mapWidth;
             if (player.y > mapHeight) player.y = mapHeight;
 
-            // Kamera-Fokus weich auf Spieler zentrieren
             camera.x = player.x - canvas.width / 2;
             camera.y = player.y - canvas.height / 2;
 
@@ -295,7 +318,7 @@
             ctx.save();
             ctx.translate(-camera.x, -camera.y);
 
-            // Hintergrund-Map
+            // Map-Hintergrund
             if (textures.map && textures.map.complete && textures.map.naturalWidth !== 0) {
                 ctx.drawImage(textures.map, 0, 0, mapWidth, mapHeight);
             } else {
@@ -303,13 +326,12 @@
                 ctx.fillRect(0, 0, mapWidth, mapHeight);
             }
 
-            // DEBUG RENDERING: Um die Hitboxen zu deaktivieren, einfach die folgenden Zeilen auskommentieren:
-            
-            // Wände (Rot)
-            ctx.strokeStyle = 'rgba(255, 0, 50, 0.4)';
             ctx.lineWidth = wallThickness;
             ctx.lineCap = 'round';
-            for (let line of wallLines) {
+
+            // 1. Bereits fertige Cafeteria-Wände rendern (Grün)
+            ctx.strokeStyle = 'rgba(0, 255, 100, 0.5)';
+            for (let line of cafLines) {
                 ctx.beginPath();
                 ctx.moveTo(line.x1, line.y1);
                 ctx.lineTo(line.x2, line.y2);
@@ -318,25 +340,36 @@
 
             // Tische (Blau)
             ctx.fillStyle = 'rgba(0, 100, 255, 0.35)';
-            for (let table of finalTables) {
+            for (let circle of baseCircleHitboxes) {
+                let tCircle = getTransformedCircle(circle);
                 ctx.beginPath();
-                ctx.arc(table.cx, table.cy, table.radius, 0, Math.PI * 2);
+                ctx.arc(tCircle.cx, tCircle.cy, tCircle.radius, 0, Math.PI * 2);
                 ctx.fill();
             }
 
-            // Spieler rendern
-            ctx.save();
-            // Zeichne Textur zentriert über die mathematische Kreisposition
-            ctx.translate(player.x, player.y);
-            if (!player.facingRight) ctx.scale(-1, 1);
-
-            if (textures.player && textures.player.complete && textures.player.naturalWidth !== 0) {
-                ctx.drawImage(textures.player, -player.width / 2, -player.height / 2, player.width, player.height);
-            } else {
-                ctx.fillStyle = '#da2222';
-                ctx.fillRect(-player.width / 2, -player.height / 2, player.width, player.height);
+            // 2. Neu gezeichnete Linien rendern (Rot)
+            ctx.strokeStyle = 'rgba(255, 0, 50, 0.6)';
+            for (let line of newLines) {
+                ctx.beginPath();
+                ctx.moveTo(line.x1, line.y1);
+                ctx.lineTo(line.x2, line.y2);
+                ctx.stroke();
             }
-            ctx.restore();
+
+            // Aktuelle Linien-Vorschau beim Ziehen (Gelb/Orange)
+            if (isDrawing) {
+                ctx.strokeStyle = 'rgba(255, 150, 0, 0.7)';
+                ctx.beginPath();
+                ctx.moveTo(startX, startY);
+                ctx.lineTo(currentX, currentY);
+                ctx.stroke();
+            }
+
+            // Kameraposition (Gelber Punkt)
+            ctx.fillStyle = '#ffff00';
+            ctx.beginPath();
+            ctx.arc(player.x, player.y, 6, 0, Math.PI * 2);
+            ctx.fill();
 
             ctx.restore();
         }
@@ -347,6 +380,8 @@
             requestAnimationFrame(loop);
         }
 
+        // Initialisiert das Textfeld direkt mit den Cafeteria-Werten
+        updateJSONOutput();
         requestAnimationFrame(loop);
     </script>
 </body>
