@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Among Us Clone - Fixed Full Map Painter</title>
+    <title>Among Us Clone - Full Map Gameplay</title>
     <style>
         * {
             box-sizing: border-box;
@@ -24,67 +24,14 @@
             width: 100vw;
             height: 100vh;
         }
-        #editor-panel {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            background: rgba(0, 0, 0, 0.9);
-            color: #fff;
-            padding: 12px;
-            border-radius: 8px;
-            font-size: 12px;
-            z-index: 100;
-            border: 1px solid #00ffcc;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.6);
-            width: 280px;
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
-        .panel-title {
-            font-weight: bold;
-            color: #00ffcc;
-            text-transform: uppercase;
-            font-size: 11px;
-            letter-spacing: 0.5px;
-        }
-        button {
-            background: #333;
-            color: white;
-            border: 1px solid #555;
-            padding: 6px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-weight: bold;
-            font-size: 11px;
-        }
-        button:active {
-            background: #00ffcc;
-            color: #000;
-        }
-        #json-output {
-            width: 100%;
-            height: 110px;
-            background: #151518;
-            color: #00ff66;
-            border: 1px solid #444;
-            font-family: monospace;
-            font-size: 10px;
-            padding: 5px;
-            resize: none;
-            white-space: pre;
-            overflow-y: scroll;
-            -webkit-user-select: text;
-            user-select: text;
-        }
         #joystick-zone {
             position: absolute;
             bottom: 40px;
             left: 40px;
-            width: 110px;
-            height: 110px;
-            background: rgba(255, 255, 255, 0.08);
-            border: 2px solid rgba(255, 255, 255, 0.2);
+            width: 120px;
+            height: 120px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.3);
             border-radius: 50%;
             display: flex;
             align-items: center;
@@ -93,32 +40,41 @@
             z-index: 10;
         }
         #joystick-knob {
-            width: 44px;
-            height: 44px;
-            background: rgba(255, 255, 255, 0.4);
+            width: 50px;
+            height: 50px;
+            background: rgba(255, 255, 255, 0.5);
             border-radius: 50%;
+        }
+        #action-btn {
+            position: absolute;
+            bottom: 50px;
+            right: 50px;
+            width: 80px;
+            height: 80px;
+            background: rgba(180, 180, 180, 0.4);
+            border: 3px solid #fff;
+            border-radius: 50%;
+            color: white;
+            font-weight: bold;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            touch-action: none;
+            box-shadow: 0 0 10px rgba(0,0,0,0.5);
+            z-index: 10;
         }
     </style>
 </head>
 <body>
-
-    <div id="editor-panel">
-        <div class="panel-title">🗺️ Full-Map Line Painter (Fixed)</div>
-        <div style="color: #aaa; font-size: 10px; line-height: 1.3;">
-            Der Versatz wurde behoben. Linien entstehen jetzt exakt unter dem Finger.
-        </div>
-        <button onclick="deleteLastWall()">Letzte Linie löschen</button>
-        <button onclick="clearAllWalls()" style="background: #552222; border-color: #773333;">Alle neuen Linien löschen</button>
-        
-        <div style="font-weight: bold; margin-top: 4px; font-size: 11px;">Gesamt-JSON (inkl. Cafeteria):</div>
-        <textarea id="json-output" readonly onclick="this.select(); document.execCommand('copy'); alert('Komplette Map-JSON kopiert!');">[ ]</textarea>
-    </div>
 
     <canvas id="gameCanvas"></canvas>
     
     <div id="joystick-zone">
         <div id="joystick-knob"></div>
     </div>
+    
+    <div id="action-btn">USE</div>
 
     <script>
         const canvas = document.getElementById('gameCanvas');
@@ -128,7 +84,8 @@
         const mapHeight = 1080;
         const wallThickness = 15;
 
-        const cafLines = [
+        // Deine komplette Map-JSON mit allen Räumen
+        const wallLines = [
             { "x1": 1206, "y1": 34,  "x2": 1333, "y2": 165 },
             { "x1": 1326, "y1": 146, "x2": 1324, "y2": 215 },
             { "x1": 1198, "y1": 35,  "x2": 901,  "y2": 33  },
@@ -139,12 +96,199 @@
             { "x1": 958,  "y1": 474, "x2": 1055, "y2": 472 },
             { "x1": 1121, "y1": 471, "x2": 1215, "y2": 471 },
             { "x1": 1329, "y1": 358, "x2": 1222, "y2": 466 },
-            { "x1": 1322, "y1": 270, "x2": 1326, "y2": 361 }
+            { "x1": 1322, "y1": 270, "x2": 1326, "y2": 361 },
+            { "x1": 861,  "y1": 265, "x2": 786,  "y2": 269 },
+            { "x1": 784,  "y1": 274, "x2": 780,  "y2": 317 },
+            { "x1": 783,  "y1": 320, "x2": 845,  "y2": 324 },
+            { "x1": 841,  "y1": 322, "x2": 840,  "y2": 393 },
+            { "x1": 844,  "y1": 397, "x2": 836,  "y2": 420 },
+            { "x1": 840,  "y1": 422, "x2": 908,  "y2": 495 },
+            { "x1": 909,  "y1": 495, "x2": 913,  "y2": 515 },
+            { "x1": 913,  "y1": 516, "x2": 705,  "y2": 523 },
+            { "x1": 707,  "y1": 525, "x2": 663,  "y2": 483 },
+            { "x1": 668,  "y1": 486, "x2": 662,  "y2": 300 },
+            { "x1": 663,  "y1": 293, "x2": 714,  "y2": 291 },
+            { "x1": 717,  "y1": 290, "x2": 716,  "y2": 276 },
+            { "x1": 716,  "y1": 272, "x2": 529,  "y2": 277 },
+            { "x1": 535,  "y1": 274, "x2": 522,  "y2": 344 },
+            { "x1": 521,  "y1": 350, "x2": 473,  "y2": 353 },
+            { "x1": 471,  "y1": 356, "x2": 469,  "y2": 477 },
+            { "x1": 472,  "y1": 479, "x2": 522,  "y2": 476 },
+            { "x1": 523,  "y1": 480, "x2": 523,  "y2": 406 },
+            { "x1": 524,  "y1": 436, "x2": 566,  "y2": 391 },
+            { "x1": 566,  "y1": 390, "x2": 601,  "y2": 391 },
+            { "x1": 608,  "y1": 395, "x2": 634,  "y2": 419 },
+            { "x1": 639,  "y1": 422, "x2": 645,  "y2": 576 },
+            { "x1": 636,  "y1": 580, "x2": 538,  "y2": 584 },
+            { "x1": 532,  "y1": 585, "x2": 527,  "y2": 532 },
+            { "x1": 527,  "y1": 531, "x2": 474,  "y2": 531 },
+            { "x1": 473,  "y1": 536, "x2": 470,  "y2": 634 },
+            { "x1": 473,  "y1": 634, "x2": 471,  "y2": 664 },
+            { "x1": 472,  "y1": 664, "x2": 516,  "y2": 666 },
+            { "x1": 518,  "y1": 665, "x2": 524,  "y2": 735 },
+            { "x1": 530,  "y1": 729, "x2": 658,  "y2": 733 },
+            { "x1": 662,  "y1": 738, "x2": 663,  "y2": 844 },
+            { "x1": 663,  "y1": 845, "x2": 704,  "y2": 849 },
+            { "x1": 705,  "y1": 850, "x2": 704,  "y2": 813 },
+            { "x1": 703,  "y1": 817, "x2": 695,  "y2": 566 },
+            { "x1": 810,  "y1": 696, "x2": 705,  "y2": 692 },
+            { "x1": 809,  "y1": 696, "x2": 807,  "y2": 668 },
+            { "x1": 807,  "y1": 669, "x2": 706,  "y2": 671 },
+            { "x1": 704,  "y1": 588, "x2": 760,  "y2": 584 },
+            { "x1": 762,  "y1": 585, "x2": 766,  "y2": 599 },
+            { "x1": 768,  "y1": 603, "x2": 907,  "y2": 600 },
+            { "x1": 911,  "y1": 602, "x2": 910,  "y2": 610 },
+            { "x1": 913,  "y1": 613, "x2": 865,  "y2": 663 },
+            { "x1": 862,  "y1": 662, "x2": 862,  "y2": 744 },
+            { "x1": 861,  "y1": 747, "x2": 824,  "y2": 790 },
+            { "x1": 825,  "y1": 792, "x2": 768,  "y2": 795 },
+            { "x1": 770,  "y1": 794, "x2": 766,  "y2": 851 },
+            { "x1": 769,  "y1": 853, "x2": 904,  "y2": 850 },
+            { "x1": 904,  "y1": 845, "x2": 901,  "y2": 684 },
+            { "x1": 904,  "y1": 678, "x2": 902,  "y2": 706 },
+            { "x1": 913,  "y1": 727, "x2": 1005, "y2": 646 },
+            { "x1": 1013, "y1": 645, "x2": 1058, "y2": 649 },
+            { "x1": 1059, "y1": 644, "x2": 1059, "y2": 475 },
+            { "x1": 62,   "y1": 930, "x2": 34,   "y2": 916 },
+            { "x1": 855,  "y1": 214, "x2": 523,  "y2": 207 },
+            { "x1": 525,  "y1": 213, "x2": 522,  "y2": 164 },
+            { "x1": 514,  "y1": 156, "x2": 377,  "y2": 156 },
+            { "x1": 381,  "y1": 160, "x2": 348,  "y2": 183 },
+            { "x1": 353,  "y1": 190, "x2": 476,  "y2": 197 },
+            { "x1": 477,  "y1": 197, "x2": 479,  "y2": 301 },
+            { "x1": 478,  "y1": 293, "x2": 335,  "y2": 292 },
+            { "x1": 333,  "y1": 293, "x2": 329,  "y2": 343 },
+            { "x1": 332,  "y1": 342, "x2": 402,  "y2": 351 },
+            { "x1": 406,  "y1": 365, "x2": 402,  "y2": 476 },
+            { "x1": 401,  "y1": 482, "x2": 356,  "y2": 481 },
+            { "x1": 350,  "y1": 484, "x2": 344,  "y2": 393 },
+            { "x1": 343,  "y1": 416, "x2": 281,  "y2": 414 },
+            { "x1": 281,  "y1": 421, "x2": 279,  "y2": 324 },
+            { "x1": 280,  "y1": 330, "x2": 272,  "y2": 329 },
+            { "x1": 280,  "y1": 353, "x2": 241,  "y2": 348 },
+            { "x1": 241,  "y1": 353, "x2": 188,  "y2": 396 },
+            { "x1": 183,  "y1": 398, "x2": 183,  "y2": 414 },
+            { "x1": 184,  "y1": 416, "x2": 237,  "y2": 414 },
+            { "x1": 240,  "y1": 416, "x2": 241,  "y2": 529 },
+            { "x1": 243,  "y1": 533, "x2": 199,  "y2": 533 },
+            { "x1": 198,  "y1": 534, "x2": 197,  "y2": 614 },
+            { "x1": 198,  "y1": 620, "x2": 236,  "y2": 646 },
+            { "x1": 243,  "y1": 651, "x2": 275,  "y2": 644 },
+            { "x1": 276,  "y1": 647, "x2": 275,  "y2": 578 },
+            { "x1": 280,  "y1": 580, "x2": 335,  "y2": 582 },
+            { "x1": 338,  "y1": 583, "x2": 340,  "y2": 531 },
+            { "x1": 342,  "y1": 528, "x2": 400,  "y2": 528 },
+            { "x1": 400,  "y1": 533, "x2": 402,  "y2": 635 },
+            { "x1": 401,  "y1": 637, "x2": 399,  "y2": 665 },
+            { "x1": 397,  "y1": 667, "x2": 340,  "y2": 665 },
+            { "x1": 75,   "y1": 614, "x2": 79,   "y2": 629 },
+            { "x1": 337,  "y1": 668, "x2": 338,  "y2": 687 },
+            { "x1": 339,  "y1": 690, "x2": 475,  "y2": 694 },
+            { "x1": 481,  "y1": 696, "x2": 478,  "y2": 784 },
+            { "x1": 478,  "y1": 785, "x2": 340,  "y2": 790 },
+            { "x1": 337,  "y1": 792, "x2": 330,  "y2": 809 },
+            { "x1": 330,  "y1": 811, "x2": 372,  "y2": 848 },
+            { "x1": 375,  "y1": 850, "x2": 520,  "y2": 854 },
+            { "x1": 523,  "y1": 855, "x2": 525,  "y2": 790 },
+            { "x1": 527,  "y1": 784, "x2": 602,  "y2": 784 },
+            { "x1": 601,  "y1": 791, "x2": 599,  "y2": 901 },
+            { "x1": 603,  "y1": 899, "x2": 905,  "y2": 901 },
+            { "x1": 901,  "y1": 900, "x2": 993,  "y2": 1001 },
+            { "x1": 991,  "y1": 1000, "x2": 1160, "y2": 1000 },
+            { "x1": 1166, "y1": 1001, "x2": 1162, "y2": 812 },
+            { "x1": 1166, "y1": 818, "x2": 1290, "y2": 814 },
+            { "x1": 1291, "y1": 814, "x2": 1294, "y2": 833 },
+            { "x1": 1293, "y1": 836, "x2": 1291, "y2": 863 },
+            { "x1": 1294, "y1": 866, "x2": 1186, "y2": 871 },
+            { "x1": 1182, "y1": 874, "x2": 1177, "y2": 921 },
+            { "x1": 1179, "y1": 922, "x2": 1203, "y2": 925 },
+            { "x1": 1205, "y1": 928, "x2": 1197, "y2": 955 },
+            { "x1": 1200, "y1": 955, "x2": 1188, "y2": 956 },
+            { "x1": 1193, "y1": 966, "x2": 1220, "y2": 991 },
+            { "x1": 1222, "y1": 990, "x2": 1233, "y2": 989 },
+            { "x1": 1234, "y1": 992, "x2": 1236, "y2": 971 },
+            { "x1": 1237, "y1": 971, "x2": 1260, "y2": 969 },
+            { "x1": 1259, "y1": 968, "x2": 1336, "y2": 969 },
+            { "x1": 1335, "y1": 970, "x2": 1337, "y2": 989 },
+            { "x1": 1344, "y1": 991, "x2": 1387, "y2": 951 },
+            { "x1": 1388, "y1": 957, "x2": 1389, "y2": 836 },
+            { "x1": 1389, "y1": 840, "x2": 1360, "y2": 838 },
+            { "x1": 1385, "y1": 869, "x2": 1362, "y2": 867 },
+            { "x1": 1362, "y1": 866, "x2": 1358, "y2": 807 },
+            { "x1": 1361, "y1": 810, "x2": 1398, "y2": 809 },
+            { "x1": 1404, "y1": 804, "x2": 1435, "y2": 800 },
+            { "x1": 1437, "y1": 803, "x2": 1476, "y2": 837 },
+            { "x1": 1475, "y1": 849, "x2": 1412, "y2": 847 },
+            { "x1": 1403, "y1": 845, "x2": 1406, "y2": 889 },
+            { "x1": 1404, "y1": 889, "x2": 1500, "y2": 897 },
+            { "x1": 1532, "y1": 859, "x2": 1504, "y2": 894 },
+            { "x1": 1532, "y1": 862, "x2": 1533, "y2": 823 },
+            { "x1": 1533, "y1": 822, "x2": 1534, "y2": 720 },
+            { "x1": 1533, "y1": 715, "x2": 1584, "y2": 713 },
+            { "x1": 1537, "y1": 676, "x2": 1593, "y2": 676 },
+            { "x1": 1593, "y1": 676, "x2": 1594, "y2": 712 },
+            { "x1": 1537, "y1": 675, "x2": 1533, "y2": 575 },
+            { "x1": 1469, "y1": 676, "x2": 1472, "y2": 720 },
+            { "x1": 1473, "y1": 720, "x2": 1446, "y2": 755 },
+            { "x1": 1444, "y1": 751, "x2": 1396, "y2": 757 },
+            { "x1": 1399, "y1": 756, "x2": 1159, "y2": 757 },
+            { "x1": 1159, "y1": 751, "x2": 1158, "y2": 623 },
+            { "x1": 1159, "y1": 621, "x2": 1144, "y2": 622 },
+            { "x1": 1156, "y1": 649, "x2": 1123, "y2": 649 },
+            { "x1": 1125, "y1": 655, "x2": 1120, "y2": 595 },
+            { "x1": 1124, "y1": 602, "x2": 1201, "y2": 610 },
+            { "x1": 1197, "y1": 602, "x2": 1198, "y2": 701 },
+            { "x1": 1203, "y1": 704, "x2": 1364, "y2": 701 },
+            { "x1": 1363, "y1": 704, "x2": 1401, "y2": 666 },
+            { "x1": 1397, "y1": 658, "x2": 1402, "y2": 517 },
+            { "x1": 1400, "y1": 519, "x2": 1369, "y2": 515 },
+            { "x1": 1364, "y1": 516, "x2": 1364, "y2": 558 },
+            { "x1": 1365, "y1": 558, "x2": 1248, "y2": 562 },
+            { "x1": 1251, "y1": 567, "x2": 1246, "y2": 522 },
+            { "x1": 1244, "y1": 518, "x2": 1203, "y2": 515 },
+            { "x1": 1200, "y1": 515, "x2": 1196, "y2": 556 },
+            { "x1": 1198, "y1": 556, "x2": 1118, "y2": 548 },
+            { "x1": 1123, "y1": 549, "x2": 1118, "y2": 471 },
+            { "x1": 1344, "y1": 619, "x2": 1259, "y2": 620 },
+            { "x1": 1260, "y1": 621, "x2": 1259, "y2": 648 },
+            { "x1": 1259, "y1": 652, "x2": 1343, "y2": 645 },
+            { "x1": 1343, "y1": 649, "x2": 1345, "y2": 630 },
+            { "x1": 1372, "y1": 398, "x2": 1310, "y2": 462 },
+            { "x1": 1315, "y1": 466, "x2": 1429, "y2": 462 },
+            { "x1": 1374, "y1": 397, "x2": 1472, "y2": 392 },
+            { "x1": 1470, "y1": 392, "x2": 1473, "y2": 272 },
+            { "x1": 1475, "y1": 275, "x2": 1456, "y2": 261 },
+            { "x1": 1457, "y1": 264, "x2": 1333, "y2": 273 },
+            { "x1": 1438, "y1": 464, "x2": 1435, "y2": 453 },
+            { "x1": 1433, "y1": 449, "x2": 1566, "y2": 448 },
+            { "x1": 1568, "y1": 449, "x2": 1572, "y2": 529 },
+            { "x1": 1569, "y1": 528, "x2": 1480, "y2": 528 },
+            { "x1": 1477, "y1": 532, "x2": 1471, "y2": 673 },
+            { "x1": 1536, "y1": 570, "x2": 1630, "y2": 565 },
+            { "x1": 1629, "y1": 572, "x2": 1627, "y2": 512 },
+            { "x1": 1627, "y1": 510, "x2": 1747, "y2": 507 },
+            { "x1": 1744, "y1": 510, "x2": 1747, "y2": 554 },
+            { "x1": 1745, "y1": 558, "x2": 1826, "y2": 562 },
+            { "x1": 1891, "y1": 516, "x2": 1834, "y2": 561 },
+            { "x1": 1893, "y1": 514, "x2": 1894, "y2": 416 },
+            { "x1": 1896, "y1": 435, "x2": 1829, "y2": 373 },
+            { "x1": 1826, "y1": 376, "x2": 1751, "y2": 376 },
+            { "x1": 1747, "y1": 370, "x2": 1742, "y2": 445 },
+            { "x1": 1742, "y1": 445, "x2": 1631, "y2": 451 },
+            { "x1": 1626, "y1": 455, "x2": 1624, "y2": 379 },
+            { "x1": 1621, "y1": 405, "x2": 1539, "y2": 398 },
+            { "x1": 1534, "y1": 404, "x2": 1533, "y2": 256 },
+            { "x1": 1535, "y1": 251, "x2": 1542, "y2": 215 },
+            { "x1": 1546, "y1": 213, "x2": 1586, "y2": 222 },
+            { "x1": 1589, "y1": 220, "x2": 1586, "y2": 184 },
+            { "x1": 1586, "y1": 186, "x2": 1493, "y2": 104 },
+            { "x1": 1497, "y1": 102, "x2": 1401, "y2": 101 },
+            { "x1": 1453, "y1": 110, "x2": 1451, "y2": 172 },
+            { "x1": 1452, "y1": 177, "x2": 1433, "y2": 209 },
+            { "x1": 1431, "y1": 211, "x2": 1326, "y2": 211 }
         ];
 
-        let newLines = [];
-
-        // Tische
+        // Kalibrierte Tischeinstellungen (Cafeteria)
         const tableOffsetX = 20;
         const tableOffsetY = -110;
         const tableFactorX = 0.71;
@@ -160,31 +304,39 @@
             { cx: 1208, cy: 491, radius: 52 }
         ];
 
-        function getTransformedCircle(circle) {
+        const finalTables = baseCircleHitboxes.map(circle => {
             let rcx = pivotX + (circle.cx - pivotX) * tableFactorX + tableOffsetX;
             let rcy = pivotY + (circle.cy - pivotY) * tableFactorY + tableOffsetY;
             let rRad = circle.radius * Math.max(tableFactorX, tableFactorY);
             return { cx: rcx, cy: rcy, radius: rRad };
-        }
-
-        let player = {
-            x: 1040, 
-            y: 280,  
-            vx: 0,
-            vy: 0,
-            speed: 10
-        };
-
-        let camera = { x: 200, y: 100 };
+        });
 
         const textures = {};
-        const sources = { map: 'assets/Map.png' };
+        const sources = {
+            map: 'assets/Map.png',
+            player: 'assets/IMG_0964.webp'
+        };
+        
         for (let key in sources) {
             textures[key] = new Image();
             textures[key].src = sources[key];
         }
 
-        // Joystick-Handling
+        let player = {
+            x: 1060, // Startet im Zentrum der Cafeteria
+            y: 260,  
+            radius: 20, 
+            width: 42,   
+            height: 54,  
+            speed: 5,
+            vx: 0,
+            vy: 0,
+            facingRight: true
+        };
+
+        let camera = { x: 0, y: 0 };
+        const keys = {};
+
         const joystickZone = document.getElementById('joystick-zone');
         const joystickKnob = document.getElementById('joystick-knob');
         let joystickActive = false;
@@ -197,12 +349,14 @@
         window.addEventListener('resize', resizeCanvas);
         resizeCanvas();
 
+        window.addEventListener('keydown', e => keys[e.key.toLowerCase()] = true);
+        window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
+
         joystickZone.addEventListener('touchstart', e => {
             joystickActive = true;
             const rect = joystickZone.getBoundingClientRect();
             joystickStartX = rect.left + rect.width / 2;
             joystickStartY = rect.top + rect.height / 2;
-            e.stopPropagation(); 
         });
 
         window.addEventListener('touchmove', e => {
@@ -211,7 +365,7 @@
             let dx = touch.clientX - joystickStartX;
             let dy = touch.clientY - joystickStartY;
             const distance = Math.sqrt(dx * dx + dy * dy);
-            const maxRadius = 35;
+            const maxRadius = 40;
 
             if (distance > maxRadius) {
                 dx = (dx / distance) * maxRadius;
@@ -221,7 +375,6 @@
             joystickKnob.style.transform = `translate(${dx}px, ${dy}px)`;
             player.vx = (dx / maxRadius) * player.speed;
             player.vy = (dy / maxRadius) * player.speed;
-            e.stopPropagation();
         });
 
         window.addEventListener('touchend', () => {
@@ -231,79 +384,70 @@
             player.vy = 0;
         });
 
-        // --- FIXED TOUCH-COORDINATES SYSTEM ---
-        let isDrawing = false;
-        let startX = 0, startY = 0;
-        let currentX = 0, currentY = 0;
+        function resolveLineCollision(p, line) {
+            let dx = line.x2 - line.x1;
+            let dy = line.y2 - line.y1;
+            let lenSq = dx * dx + dy * dy;
+            if (lenSq === 0) return;
 
-        // Rechnet die Viewport-Touchdaten präzise in Map-Koordinaten um
-        function getMapCoords(touchEvt) {
-            const rect = canvas.getBoundingClientRect();
-            const canvasX = touchEvt.clientX - rect.left;
-            const canvasY = touchEvt.clientY - rect.top;
-            return {
-                x: Math.round(canvasX + camera.x),
-                y: Math.round(canvasY + camera.y)
-            };
-        }
+            let t = ((p.x - line.x1) * dx + (p.y - line.y1) * dy) / lenSq;
+            t = Math.max(0, Math.min(1, t));
 
-        window.addEventListener('touchstart', e => {
-            if (e.target.closest('#editor-panel') || e.target.closest('#joystick-zone')) return;
-            
-            isDrawing = true;
-            const coords = getMapCoords(e.touches[0]);
-            startX = coords.x;
-            startY = coords.y;
-            currentX = startX;
-            currentY = startY;
-        });
+            let closestX = line.x1 + t * dx;
+            let closestY = line.y1 + t * dy;
 
-        window.addEventListener('touchmove', e => {
-            if (!isDrawing) return;
-            const coords = getMapCoords(e.touches[0]);
-            currentX = coords.x;
-            currentY = coords.y;
-        });
+            let distVecX = p.x - closestX;
+            let distVecY = p.y - closestY;
+            let distance = Math.sqrt(distVecX * distVecX + distVecY * distVecY);
 
-        window.addEventListener('touchend', e => {
-            if (!isDrawing) return;
-            isDrawing = false;
+            let minDist = p.radius + (wallThickness / 2);
 
-            let dx = currentX - startX;
-            let dy = currentY - startY;
-            let len = Math.sqrt(dx * dx + dy * dy);
-
-            if (len > 8) {
-                newLines.push({
-                    x1: startX,
-                    y1: startY,
-                    x2: currentX,
-                    y2: currentY
-                });
-                updateJSONOutput();
-            }
-        });
-
-        function deleteLastWall() {
-            newLines.pop();
-            updateJSONOutput();
-        }
-
-        function clearAllWalls() {
-            if(confirm("Alle neu gezeichneten Linien löschen?")) {
-                newLines = [];
-                updateJSONOutput();
+            if (distance < minDist) {
+                if (distance === 0) return;
+                let overlap = minDist - distance;
+                p.x += (distVecX / distance) * overlap;
+                p.y += (distVecY / distance) * overlap;
             }
         }
 
-        function updateJSONOutput() {
-            const fullMapArray = [...cafLines, ...newLines];
-            document.getElementById('json-output').value = JSON.stringify(fullMapArray, null, 2);
+        function resolveCircleCollision(p, circle) {
+            let dx = p.x - circle.cx;
+            let dy = p.y - circle.cy;
+            let distance = Math.sqrt(dx * dx + dy * dy);
+            let minDist = p.radius + circle.radius;
+
+            if (distance < minDist) {
+                if (distance === 0) return;
+                let overlap = minDist - distance;
+                p.x += (dx / distance) * overlap;
+                p.y += (dy / distance) * overlap;
+            }
         }
 
         function update() {
+            if (keys['w'] || keys['arrowup']) player.vy = -player.speed;
+            else if (keys['s'] || keys['arrowdown']) player.vy = player.speed;
+            else if (!joystickActive) player.vy = 0;
+
+            if (keys['a'] || keys['arrowleft']) { player.vx = -player.speed; player.facingRight = false; }
+            else if (keys['d'] || keys['arrowright']) { player.vx = player.speed; player.facingRight = true; }
+            else if (!joystickActive) player.vx = 0;
+
+            if (joystickActive && player.vx !== 0) {
+                player.facingRight = player.vx > 0;
+            }
+
             player.x += player.vx;
             player.y += player.vy;
+
+            // Kollisionsprüfung für das gesamte Map-Array
+            for (let line of wallLines) {
+                resolveLineCollision(player, line);
+            }
+
+            for (let table of finalTables) {
+                resolveCircleCollision(player, table);
+            }
 
             if (player.x < 0) player.x = 0;
             if (player.y < 0) player.y = 0;
@@ -332,50 +476,37 @@
                 ctx.fillRect(0, 0, mapWidth, mapHeight);
             }
 
+            // Alle Wand-Hitboxen sichtbar zeichnen (Rot)
+            ctx.strokeStyle = 'rgba(255, 0, 50, 0.5)';
             ctx.lineWidth = wallThickness;
             ctx.lineCap = 'round';
-
-            // Cafeteria (Grün)
-            ctx.strokeStyle = 'rgba(0, 255, 100, 0.5)';
-            for (let line of cafLines) {
+            for (let line of wallLines) {
                 ctx.beginPath();
                 ctx.moveTo(line.x1, line.y1);
                 ctx.lineTo(line.x2, line.y2);
                 ctx.stroke();
             }
 
-            // Tische (Blau)
+            // Tisch-Hitboxen sichtbar zeichnen (Blau)
             ctx.fillStyle = 'rgba(0, 100, 255, 0.35)';
-            for (let circle of baseCircleHitboxes) {
-                let tCircle = getTransformedCircle(circle);
+            for (let table of finalTables) {
                 ctx.beginPath();
-                ctx.arc(tCircle.cx, tCircle.cy, tCircle.radius, 0, Math.PI * 2);
+                ctx.arc(table.cx, table.cy, table.radius, 0, Math.PI * 2);
                 ctx.fill();
             }
 
-            // Neue Linien (Rot)
-            ctx.strokeStyle = 'rgba(255, 0, 50, 0.6)';
-            for (let line of newLines) {
-                ctx.beginPath();
-                ctx.moveTo(line.x1, line.y1);
-                ctx.lineTo(line.x2, line.y2);
-                ctx.stroke();
-            }
+            // Spieler zeichnen
+            ctx.save();
+            ctx.translate(player.x, player.y);
+            if (!player.facingRight) ctx.scale(-1, 1);
 
-            // Live-Vorschau (Orange)
-            if (isDrawing) {
-                ctx.strokeStyle = 'rgba(255, 150, 0, 0.7)';
-                ctx.beginPath();
-                ctx.moveTo(startX, startY);
-                ctx.lineTo(currentX, currentY);
-                ctx.stroke();
+            if (textures.player && textures.player.complete && textures.player.naturalWidth !== 0) {
+                ctx.drawImage(textures.player, -player.width / 2, -player.height / 2, player.width, player.height);
+            } else {
+                ctx.fillStyle = '#da2222';
+                ctx.fillRect(-player.width / 2, -player.height / 2, player.width, player.height);
             }
-
-            // Kamera-Fokus
-            ctx.fillStyle = '#ffff00';
-            ctx.beginPath();
-            ctx.arc(player.x, player.y, 6, 0, Math.PI * 2);
-            ctx.fill();
+            ctx.restore();
 
             ctx.restore();
         }
@@ -386,7 +517,6 @@
             requestAnimationFrame(loop);
         }
 
-        updateJSONOutput();
         requestAnimationFrame(loop);
     </script>
 </body>
