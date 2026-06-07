@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Among Us Clone</title>
+    <title>Among Us Clone - Hitbox Calibrator</title>
     <style>
         * {
             box-sizing: border-box;
@@ -23,6 +23,43 @@
             display: block;
             width: 100vw;
             height: 100vh;
+        }
+        /* Kalibrierungs-Panel */
+        #calibrator-panel {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.85);
+            color: #fff;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 13px;
+            z-index: 100;
+            border: 1px solid #555;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+        }
+        .control-group {
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .control-group span {
+            min-width: 90px;
+            display: inline-block;
+            font-weight: bold;
+        }
+        button {
+            background: #444;
+            color: white;
+            border: 1px solid #666;
+            padding: 4px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 11px;
+        }
+        button:active {
+            background: #666;
         }
         #joystick-zone {
             position: absolute;
@@ -68,6 +105,25 @@
 </head>
 <body>
 
+    <div id="calibrator-panel">
+        <div style="font-weight: bold; margin-bottom: 8px; color: #00ffcc;">Hitbox Verschiebung:</div>
+        <div class="control-group">
+            <span id="val-x">X-Offset: 0</span>
+            <button onclick="adjustOffset('x', -10)">-10</button>
+            <button onclick="adjustOffset('x', -1)">-1</button>
+            <button onclick="adjustOffset('x', 1)">+1</button>
+            <button onclick="adjustOffset('x', 10)">+10</button>
+        </div>
+        <div class="control-group">
+            <span id="val-y">Y-Offset: 0</span>
+            <button onclick="adjustOffset('y', -10)">-10</button>
+            <button onclick="adjustOffset('y', -1)">-1</button>
+            <button onclick="adjustOffset('y', 1)">+1</button>
+            <button onclick="adjustOffset('y', 10)">+10</button>
+        </div>
+        <div style="font-size: 10px; color: #aaa; margin-top: 5px;">Bewege die Boxen bis sie auf der Map passen!</div>
+    </div>
+
     <canvas id="gameCanvas"></canvas>
     
     <div id="joystick-zone">
@@ -80,9 +136,19 @@
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
 
-        // Die exakte native Auflösung der Map-Vorlage
         const mapWidth = 1920;
         const mapHeight = 1080;
+
+        // Dynamische Offsets, die du über das Panel veränderst
+        let offsetX = 0;
+        let offsetY = 0;
+
+        function adjustOffset(axis, amount) {
+            if (axis === 'x') offsetX += amount;
+            if (axis === 'y') offsetY += amount;
+            document.getElementById('val-x').innerText = `X-Offset: ${offsetX}`;
+            document.getElementById('val-y').innerText = `Y-Offset: ${offsetY}`;
+        }
 
         const textures = {};
         const sources = {
@@ -100,45 +166,35 @@
             textures[key].onerror = () => { loadedCount++; };
         }
 
-        // ==========================================
-        // PIXELPERFEKTE KOORDINATEN AUS DER DESIGN-MAP
-        // ==========================================
-        const hitboxes = [
-            // Schräge Wände oben links & oben rechts der Cafeteria-Kuppel
-            { x: 815,  y: 40,  width: 40,  height: 95 },   // Vertikal oben links
-            { x: 815,  y: 40,  width: 250, height: 40 },   // Horizontal oben links
-            { x: 1055, y: 40,  width: 250, height: 40 },   // Horizontal oben rechts
-            { x: 1265, y: 40,  width: 40,  height: 95 },   // Vertikal oben rechts
-            
-            // Hauptseitenwände
-            { x: 648,  y: 135, width: 45,  height: 300 },  // Linke Wand (zu MedBay)
-            { x: 1428, y: 135, width: 45,  height: 300 },  // Rechte Wand (zu Weapons)
-            
-            // Schräge Wände unten links & unten rechts
-            { x: 648,  y: 435, width: 230, height: 45 },   // Unten links Knick
-            { x: 835,  y: 480, width: 45,  height: 60 },   // MedBay Gang-Ecke
-            { x: 1243, y: 435, width: 230, height: 45 },   // Unten rechts Knick
-            { x: 1243, y: 480, width: 45,  height: 60 },   // Weapons Gang-Ecke
-            
-            // Südausgang (Flur zum Storage)
-            { x: 835,  y: 540, width: 140, height: 45 },   // Untere Begrenzung links vom Flur
-            { x: 1145, y: 540, width: 143, height: 45 },   // Untere Begrenzung rechts vom Flur
-            { x: 975,  y: 585, width: 15,  height: 300 },  // Linke Flurwand
-            { x: 1132, y: 585, width: 15,  height: 300 }   // Rechte Flurwand
+        // Basis-Koordinaten aus dem letzten Versuch
+        const baseHitboxes = [
+            { x: 815,  y: 40,  width: 40,  height: 95 },
+            { x: 815,  y: 40,  width: 250, height: 40 },
+            { x: 1055, y: 40,  width: 250, height: 40 },
+            { x: 1265, y: 40,  width: 40,  height: 95 },
+            { x: 648,  y: 135, width: 45,  height: 300 },
+            { x: 1428, y: 135, width: 45,  height: 300 },
+            { x: 648,  y: 435, width: 230, height: 45 },
+            { x: 835,  y: 480, width: 45,  height: 60 },
+            { x: 1243, y: 435, width: 230, height: 45 },
+            { x: 1243, y: 480, width: 45,  height: 60 },
+            { x: 835,  y: 540, width: 140, height: 45 },
+            { x: 1145, y: 540, width: 143, height: 45 },
+            { x: 975,  y: 585, width: 15,  height: 300 },
+            { x: 1132, y: 585, width: 15,  height: 300 }
         ];
 
-        // Die 5 Tische - direkt aus den Pixeldaten ausgelesen (Radius 52 deckt die Tische perfekt ab)
-        const circleHitboxes = [
-            { cx: 917,  cy: 218, radius: 52 }, // Oben Links
-            { cx: 1208, cy: 218, radius: 52 }, // Oben Rechts
-            { cx: 1062, cy: 354, radius: 52 }, // Mitte (Emergency)
-            { cx: 917,  cy: 491, radius: 52 }, // Unten Links
-            { cx: 1208, cy: 491, radius: 52 }  // Unten Rechts
+        const baseCircleHitboxes = [
+            { cx: 917,  cy: 218, radius: 52 },
+            { cx: 1208, cy: 218, radius: 52 },
+            { cx: 1062, cy: 354, radius: 52 },
+            { cx: 917,  cy: 491, radius: 52 },
+            { cx: 1208, cy: 491, radius: 52 }
         ];
 
-        // Spieler-Setup: Spawnt im freien Raum direkt links neben dem Emergency-Tisch
+        // Spieler startet im Zentrum des Screens
         let player = {
-            x: 980, 
+            x: 930, 
             y: 330,  
             width: 42,  
             height: 54, 
@@ -200,18 +256,23 @@
         });
 
         function checkRectCollision(rect1, rect2) {
-            return rect1.x < rect2.x + rect2.width &&
-                   rect1.x + rect1.width > rect2.x &&
-                   rect1.y < rect2.y + rect2.height &&
-                   rect1.y + rect1.height > rect2.y;
+            // Berechne reale Position der Hitbox inklusive des Live-Offsets ein
+            return rect1.x < rect2.x + offsetX + rect2.width &&
+                   rect1.x + rect1.width > rect2.x + offsetX &&
+                   rect1.y < rect2.y + offsetY + rect2.height &&
+                   rect1.y + rect1.height > rect2.y + offsetY;
         }
 
         function resolveCircleCollision(playerObj, circle) {
-            let closestX = Math.max(playerObj.x, Math.min(circle.cx, playerObj.x + playerObj.width));
-            let closestY = Math.max(playerObj.y, Math.min(circle.cy, playerObj.y + playerObj.height));
+            // Berechne reale Position des Kreises inklusive des Live-Offsets ein
+            let currentCX = circle.cx + offsetX;
+            let currentCY = circle.cy + offsetY;
 
-            let distanceX = circle.cx - closestX;
-            let distanceY = circle.cy - closestY;
+            let closestX = Math.max(playerObj.x, Math.min(currentCX, playerObj.x + playerObj.width));
+            let closestY = Math.max(playerObj.y, Math.min(currentCY, playerObj.y + playerObj.height));
+
+            let distanceX = currentCX - closestX;
+            let distanceY = currentCY - closestY;
             let distanceSquared = (distanceX * distanceX) + (distanceY * distanceY);
 
             if (distanceSquared < circle.radius * circle.radius) {
@@ -240,35 +301,32 @@
                 player.facingRight = player.vx > 0;
             }
 
-            // X-Achse Bewegung & Kollision
+            // X Kollision
             player.x += player.vx;
-            for (let box of hitboxes) {
+            for (let box of baseHitboxes) {
                 if (checkRectCollision(player, box)) {
-                    if (player.vx > 0) player.x = box.x - player.width;
-                    if (player.vx < 0) player.x = box.x + box.width;
+                    if (player.vx > 0) player.x = box.x + offsetX - player.width;
+                    if (player.vx < 0) player.x = box.x + offsetX + box.width;
                 }
             }
 
-            // Y-Achse Bewegung & Kollision
+            // Y Kollision
             player.y += player.vy;
-            for (let box of hitboxes) {
+            for (let box of baseHitboxes) {
                 if (checkRectCollision(player, box)) {
-                    if (player.vy > 0) player.y = box.y - player.height;
-                    if (player.vy < 0) player.y = box.y + box.height;
+                    if (player.vy > 0) player.y = box.y + offsetY - player.height;
+                    if (player.vy < 0) player.y = box.y + offsetY + box.height;
                 }
             }
 
-            // Kreis-Kollisionen an Tischen
-            for (let circle of circleHitboxes) {
+            // Kreis Kollision
+            for (let circle of baseCircleHitboxes) {
                 resolveCircleCollision(player, circle);
             }
 
-            // STABILISIERTER KAMERAFOKUS: Verhindert das Driften auf Smartphones
-            // Die Kamera zentriert das Spielfeld starr, solange der Viewport kleiner als die Map ist
+            // Starre Kamera zentriert auf die 1920x1080 Map
             camera.x = (mapWidth - canvas.width) / 2;
             camera.y = (mapHeight - canvas.height) / 2;
-
-            // Fallback für extrem kleine Displays
             if (camera.x < 0) camera.x = 0;
             if (camera.y < 0) camera.y = 0;
         }
@@ -279,7 +337,7 @@
             ctx.save();
             ctx.translate(-camera.x, -camera.y);
 
-            // Rendere Map im Hintergrund
+            // Map
             if (textures.map && textures.map.complete && textures.map.naturalWidth !== 0) {
                 ctx.drawImage(textures.map, 0, 0, mapWidth, mapHeight);
             } else {
@@ -287,18 +345,18 @@
                 ctx.fillRect(0, 0, mapWidth, mapHeight);
             }
 
-            // Rote Debug-Layer für exakte Kontrolle
+            // Rote Debug-Layer inklusive des Live-Offsets gezeichnet
             ctx.fillStyle = 'rgba(255, 0, 0, 0.4)';
-            for (let box of hitboxes) {
-                ctx.fillRect(box.x, box.y, box.width, box.height);
+            for (let box of baseHitboxes) {
+                ctx.fillRect(box.x + offsetX, box.y + offsetY, box.width, box.height);
             }
-            for (let circle of circleHitboxes) {
+            for (let circle of baseCircleHitboxes) {
                 ctx.beginPath();
-                ctx.arc(circle.cx, circle.cy, circle.radius, 0, Math.PI * 2);
+                ctx.arc(circle.cx + offsetX, circle.cy + offsetY, circle.radius, 0, Math.PI * 2);
                 ctx.fill();
             }
 
-            // Spieler rendern
+            // Spieler
             ctx.save();
             ctx.translate(player.x + player.width / 2, player.y + player.height / 2);
             if (!player.facingRight) ctx.scale(-1, 1);
