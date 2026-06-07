@@ -97,20 +97,19 @@
         let texturesLoaded = 0;
         const totalTextures = Object.keys(TEXTURE_PATHS).length;
 
-        // Map-Größe (wird beim Laden automatisch an die echten Bildmaße angepasst)
-        let mapWidth = 2400;
-        let mapHeight = 1400;
+        // Feste virtuelle Map-Größe, damit Koordinaten IMMER stimmen!
+        const mapWidth = 2400;
+        const mapHeight = 1400;
 
         // ==========================================
         // COLLISION BOXES (Method 2: Rectangles)
         // ==========================================
-        // Format: { x, y, width, height }
         const hitboxes = [
-            // --- Vorläufige Außenwände (passen sich dynamisch an) ---
-            { x: 0, y: 0, width: 2400, height: 120 },                  
-            { x: 0, y: 1300, width: 2400, height: 100 },    
-            { x: 0, y: 0, width: 200, height: 1400 },                  
-            { x: 2200, y: 0, width: 200, height: 1400 },    
+            // --- Außenwände (Fest auf die 2400x1400 Map skaliert) ---
+            { x: 0, y: 0, width: 2400, height: 140 },                  
+            { x: 0, y: 1280, width: 2400, height: 120 },    
+            { x: 0, y: 0, width: 220, height: 1400 },                  
+            { x: 2180, y: 0, width: 220, height: 1400 },    
 
             // --- Cafeteria Tische (Mitte oben) ---
             { x: 1050, y: 220, width: 100, height: 100 }, 
@@ -120,11 +119,11 @@
 
         // Spieler-Setup
         let player = {
-            x: 1180, // Startet in der Mitte der Cafeteria
-            y: 500,
+            x: 1180, // Startet jetzt exakt in der Mitte der Cafeteria
+            y: 520,
             width: 60,  
             height: 75, 
-            speed: 4.5,
+            speed: 5,
             vx: 0,
             vy: 0,
             facingRight: true
@@ -146,21 +145,6 @@
                 textures[key].src = TEXTURE_PATHS[key];
                 textures[key].onload = () => {
                     texturesLoaded++;
-                    
-                    // Sobald die Map da ist, übernehmen wir die exakte Bildauflösung
-                    if (key === 'map') {
-                        mapWidth = textures.map.naturalWidth;
-                        mapHeight = textures.map.naturalHeight;
-                        
-                        // Korrigiert die Außenwände basierend auf der echten Bildgröße
-                        hitboxes[1].y = mapHeight - 100;
-                        hitboxes[1].width = mapWidth;
-                        hitboxes[0].width = mapWidth;
-                        hitboxes[3].x = mapWidth - 200;
-                        hitboxes[3].height = mapHeight;
-                        hitboxes[2].height = mapHeight;
-                    }
-                    
                     if (texturesLoaded === totalTextures) initGame();
                 };
                 textures[key].onerror = () => {
@@ -266,11 +250,14 @@
             camera.x = player.x + player.width / 2 - canvas.width / 2;
             camera.y = player.y + player.height / 2 - canvas.height / 2;
 
-            // Kamera-Begrenzung am Map-Rand
+            // Kamera-Begrenzung am Map-Rand (Verhindert Out-of-Bounds Ruckeln)
+            const maxCamX = mapWidth - canvas.width;
+            const maxCamY = mapHeight - canvas.height;
+
             if (camera.x < 0) camera.x = 0;
             if (camera.y < 0) camera.y = 0;
-            if (camera.x > mapWidth - canvas.width) camera.x = mapWidth - canvas.width;
-            if (camera.y > mapHeight - canvas.height) camera.y = mapHeight - canvas.height;
+            if (maxCamX > 0 && camera.x > maxCamX) camera.x = maxCamX;
+            if (maxCamY > 0 && camera.y > maxCamY) camera.y = maxCamY;
         }
 
         function draw() {
@@ -279,7 +266,7 @@
             ctx.save();
             ctx.translate(-camera.x, -camera.y);
 
-            // 1. Hintergrund / Map zeichnen
+            // 1. Hintergrund / Map zeichnen (Wird jetzt IMMER auf mapWidth/mapHeight gestreckt!)
             if (textures.map && textures.map.complete && textures.map.naturalWidth !== 0) {
                 ctx.drawImage(textures.map, 0, 0, mapWidth, mapHeight);
             } else {
@@ -303,7 +290,6 @@
             if (textures.player && textures.player.complete && textures.player.naturalWidth !== 0) {
                 ctx.drawImage(textures.player, -player.width / 2, -player.height / 2, player.width, player.height);
             } else {
-                // Rote Box falls Texturpfad fehlerhaft ist
                 ctx.fillStyle = '#da2222';
                 ctx.fillRect(-player.width / 2, -player.height / 2, player.width, player.height);
             }
