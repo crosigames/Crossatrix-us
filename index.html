@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Among Us Clone - Ultimate Calibrator</title>
+    <title>Among Us Clone - Wall Calibrator</title>
     <style>
         * {
             box-sizing: border-box;
@@ -24,7 +24,6 @@
             width: 100vw;
             height: 100vh;
         }
-        /* Fixiertes Control-Panel unabhängig von der Kamera */
         #calibrator-panel {
             position: absolute;
             top: 10px;
@@ -35,14 +34,14 @@
             border-radius: 8px;
             font-size: 12px;
             z-index: 100;
-            border: 1px solid #00ffcc;
+            border: 1px solid #ff5555;
             box-shadow: 0 4px 15px rgba(0,0,0,0.6);
             max-width: 290px;
         }
         .panel-title {
             font-weight: bold;
             margin-bottom: 10px;
-            color: #00ffcc;
+            color: #ff5555;
             text-transform: uppercase;
             letter-spacing: 0.5px;
         }
@@ -54,7 +53,7 @@
             gap: 4px;
         }
         .control-group span {
-            min-width: 95px;
+            min-width: 105px;
             display: inline-block;
             font-weight: bold;
         }
@@ -73,7 +72,7 @@
             min-width: 32px;
         }
         button:active {
-            background: #00ffcc;
+            background: #ff5555;
             color: #000;
         }
         #joystick-zone {
@@ -121,50 +120,49 @@
 <body>
 
     <div id="calibrator-panel">
-        <div class="panel-title">Hitbox Matrix Kalibrierung</div>
+        <div class="panel-title">Wand-Hitboxen Kalibrierung</div>
         
         <div class="control-group">
-            <span id="val-x">X-Offset: 20</span>
+            <span id="val-wx">Wand X-Off: 0</span>
             <div class="btn-wrapper">
-                <button onclick="adjust('x', -10)">-10</button>
-                <button onclick="adjust('x', -1)">-1</button>
-                <button onclick="adjust('x', 1)">+1</button>
-                <button onclick="adjust('x', 10)">+10</button>
+                <button onclick="adjust('wx', -10)">-10</button>
+                <button onclick="adjust('wx', -1)">-1</button>
+                <button onclick="adjust('wx', 1)">+1</button>
+                <button onclick="adjust('wx', 10)">+10</button>
             </div>
         </div>
         <div class="control-group">
-            <span id="val-y">Y-Offset: -106</span>
+            <span id="val-wy">Wand Y-Off: 0</span>
             <div class="btn-wrapper">
-                <button onclick="adjust('y', -10)">-10</button>
-                <button onclick="adjust('y', -1)">-1</button>
-                <button onclick="adjust('y', 1)">+1</button>
-                <button onclick="adjust('y', 10)">+10</button>
+                <button onclick="adjust('wy', -10)">-10</button>
+                <button onclick="adjust('wy', -1)">-1</button>
+                <button onclick="adjust('wy', 1)">+1</button>
+                <button onclick="adjust('wy', 10)">+10</button>
             </div>
         </div>
         
         <hr style="border: 0; border-top: 1px solid #444; margin: 8px 0;">
         
         <div class="control-group">
-            <span id="val-fx">X-Faktor: 1.00</span>
+            <span id="val-wfx">Wand X-Fak: 1.00</span>
             <div class="btn-wrapper">
-                <button onclick="adjust('fx', -0.1)">-0.1</button>
-                <button onclick="adjust('fx', -0.01)">-.01</button>
-                <button onclick="adjust('fx', 0.01)">+.01</button>
-                <button onclick="adjust('fx', 0.1)">+0.1</button>
+                <button onclick="adjust('wfx', -0.1)">-0.1</button>
+                <button onclick="adjust('wfx', -0.01)">-.01</button>
+                <button onclick="adjust('wfx', 0.01)">+.01</button>
+                <button onclick="adjust('wfx', 0.1)">+0.1</button>
             </div>
         </div>
         <div class="control-group">
-            <span id="val-fy">Y-Faktor: 1.00</span>
+            <span id="val-wfy">Wand Y-Fak: 1.00</span>
             <div class="btn-wrapper">
-                <button onclick="adjust('fy', -0.1)">-0.1</button>
-                <button onclick="adjust('fy', -0.01)">-.01</button>
-                <button onclick="adjust('fy', 0.01)">+.01</button>
-                <button onclick="adjust('fy', 0.1)">+0.1</button>
+                <button onclick="adjust('wfy', -0.1)">-0.1</button>
+                <button onclick="adjust('wfy', -0.01)">-.01</button>
+                <button onclick="adjust('wfy', 0.01)">+.01</button>
+                <button onclick="adjust('wfy', 0.1)">+0.1</button>
             </div>
         </div>
         <div style="font-size: 10px; color: #aaa; margin-top: 6px; line-height: 1.2;">
-            1. Nutze <b>Faktor</b>, um den Abstand zwischen den Wänden/Tischen zu ändern.<br>
-            2. Nutze <b>Offset</b>, um das gesamte fertige Konstrukt zu verschieben.
+            Die Tische sind eingefroren! Passe jetzt die roten Wände an, bis sie deckungsgleich liegen.
         </div>
     </div>
 
@@ -183,26 +181,31 @@
         const mapWidth = 1920;
         const mapHeight = 1080;
 
-        // Startwerte basierend auf deinem Screenshot
-        let offsetX = 20;
-        let offsetY = -106;
-        let factorX = 1.0;
-        let factorY = 1.0;
+        // Deine perfekten Tisch-Konfigurationen fest verankert
+        const tableOffsetX = 20;
+        const tableOffsetY = -110;
+        const tableFactorX = 0.71;
+        const tableFactorY = 0.77;
 
-        // Dreh- und Angelpunkt für das Skalieren ist das Zentrum des Emergency-Tisches
+        // Einstellbare Werte NUR für die Wände
+        let wallOffsetX = 0;
+        let wallOffsetY = 0;
+        let wallFactorX = 1.0;
+        let wallFactorY = 1.0;
+
         const pivotX = 1062;
         const pivotY = 354;
 
         function adjust(type, amount) {
-            if (type === 'x') offsetX += amount;
-            if (type === 'y') offsetY += amount;
-            if (type === 'fx') factorX = Math.max(0.1, factorX + amount);
-            if (type === 'fy') factorY = Math.max(0.1, factorY + amount);
+            if (type === 'wx') wallOffsetX += amount;
+            if (type === 'wy') wallOffsetY += amount;
+            if (type === 'wfx') wallFactorX = Math.max(0.1, wallFactorX + amount);
+            if (type === 'wfy') wallFactorY = Math.max(0.1, wallFactorY + amount);
             
-            document.getElementById('val-x').innerText = `X-Offset: ${offsetX}`;
-            document.getElementById('val-y').innerText = `Y-Offset: ${offsetY}`;
-            document.getElementById('val-fx').innerText = `X-Faktor: ${factorX.toFixed(2)}`;
-            document.getElementById('val-fy').innerText = `Y-Faktor: ${factorY.toFixed(2)}`;
+            document.getElementById('val-wx').innerText = `Wand X-Off: ${wallOffsetX}`;
+            document.getElementById('val-wy').innerText = `Wand Y-Off: ${wallOffsetY}`;
+            document.getElementById('val-wfx').innerText = `Wand X-Fak: ${wallFactorX.toFixed(2)}`;
+            document.getElementById('val-wfy').innerText = `Wand Y-Fak: ${wallFactorY.toFixed(2)}`;
         }
 
         const textures = {};
@@ -218,7 +221,7 @@
             textures[key].onload = () => loadedCount++;
         }
 
-        // Unveränderte Rohdaten der Hitboxen
+        // Unveränderte Rohdaten der Wände
         const baseHitboxes = [
             { x: 815,  y: 40,  width: 40,  height: 95 },
             { x: 815,  y: 40,  width: 250, height: 40 },
@@ -236,10 +239,11 @@
             { x: 1132, y: 585, width: 15,  height: 300 }
         ];
 
+        // Unveränderte Rohdaten der Tische
         const baseCircleHitboxes = [
             { cx: 917,  cy: 218, radius: 52 },
             { cx: 1208, cy: 218, radius: 52 },
-            { cx: 1062, cy: 354, radius: 52 }, // Center
+            { cx: 1062, cy: 354, radius: 52 },
             { cx: 917,  cy: 491, radius: 52 },
             { cx: 1208, cy: 491, radius: 52 }
         ];
@@ -306,22 +310,20 @@
             player.vy = 0;
         });
 
-        // Hilfsfunktion zur dynamischen Matrix-Transformation einer Rechteck-Hitbox
+        // Wände nutzen die neuen Live-Regler im Panel
         function getTransformedRect(box) {
-            // Skaliere die Position relativ zum Pivot-Punkt
-            let rx = pivotX + (box.x - pivotX) * factorX + offsetX;
-            let ry = pivotY + (box.y - pivotY) * factorY + offsetY;
-            // Skaliere die Ausdehnung der Hitbox selbst
-            let rw = box.width * factorX;
-            let rh = box.height * factorY;
+            let rx = pivotX + (box.x - pivotX) * wallFactorX + wallOffsetX;
+            let ry = pivotY + (box.y - pivotY) * wallFactorY + wallOffsetY;
+            let rw = box.width * wallFactorX;
+            let rh = box.height * wallFactorY;
             return { x: rx, y: ry, width: rw, height: rh };
         }
 
-        // Hilfsfunktion zur dynamischen Matrix-Transformation einer Kreis-Hitbox
+        // Tische nutzen die von dir ermittelten fixen Werte
         function getTransformedCircle(circle) {
-            let rcx = pivotX + (circle.cx - pivotX) * factorX + offsetX;
-            let rcy = pivotY + (circle.cy - pivotY) * factorY + offsetY;
-            let rRad = circle.radius * Math.max(factorX, factorY);
+            let rcx = pivotX + (circle.cx - pivotX) * tableFactorX + tableOffsetX;
+            let rcy = pivotY + (circle.cy - pivotY) * tableFactorY + tableOffsetY;
+            let rRad = circle.radius * Math.max(tableFactorX, tableFactorY);
             return { cx: rcx, cy: rcy, radius: rRad };
         }
 
@@ -366,7 +368,6 @@
                 player.facingRight = player.vx > 0;
             }
 
-            // Bewegung auf X-Achse & Kollisionsprüfung
             player.x += player.vx;
             for (let box of baseHitboxes) {
                 let tBox = getTransformedRect(box);
@@ -376,7 +377,6 @@
                 }
             }
 
-            // Bewegung auf Y-Achse & Kollisionsprüfung
             player.y += player.vy;
             for (let box of baseHitboxes) {
                 let tBox = getTransformedRect(box);
@@ -386,17 +386,14 @@
                 }
             }
 
-            // Kreiskollisionen an den skalierten Tischen auflösen
             for (let circle of baseCircleHitboxes) {
                 let tCircle = getTransformedCircle(circle);
                 resolveCircleCollision(player, tCircle);
             }
 
-            // Dynamische Kamera reaktiviert: Folgt der Spielfigur weich
             camera.x = player.x + player.width / 2 - canvas.width / 2;
             camera.y = player.y + player.height / 2 - canvas.height / 2;
 
-            // Grenzen der Kamera auf Kartengröße festsetzen
             if (camera.x < 0) camera.x = 0;
             if (camera.y < 0) camera.y = 0;
             if (camera.x > mapWidth - canvas.width) camera.x = Math.max(0, mapWidth - canvas.width);
@@ -409,7 +406,6 @@
             ctx.save();
             ctx.translate(-camera.x, -camera.y);
 
-            // Hintergrund-Map rendern
             if (textures.map && textures.map.complete && textures.map.naturalWidth !== 0) {
                 ctx.drawImage(textures.map, 0, 0, mapWidth, mapHeight);
             } else {
@@ -417,12 +413,15 @@
                 ctx.fillRect(0, 0, mapWidth, mapHeight);
             }
 
-            // Rote Debug-Layer live transformiert rendern
+            // Zeichne Wände (Rot) mit den neuen Live-Reglern
             ctx.fillStyle = 'rgba(255, 0, 0, 0.4)';
             for (let box of baseHitboxes) {
                 let tBox = getTransformedRect(box);
                 ctx.fillRect(tBox.x, tBox.y, tBox.width, tBox.height);
             }
+
+            // Zeichne Tische (Blau/Violett) mit den eingefrorenen Werten zur Kontrolle
+            ctx.fillStyle = 'rgba(0, 100, 255, 0.4)';
             for (let circle of baseCircleHitboxes) {
                 let tCircle = getTransformedCircle(circle);
                 ctx.beginPath();
@@ -430,7 +429,7 @@
                 ctx.fill();
             }
 
-            // Spielerfigur rendern
+            // Spieler
             ctx.save();
             ctx.translate(player.x + player.width / 2, player.y + player.height / 2);
             if (!player.facingRight) ctx.scale(-1, 1);
