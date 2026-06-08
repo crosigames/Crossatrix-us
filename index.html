@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Among Us Clone - Tech Edition</title>
+    <title>Among Us Clone - Mobile Debug Edition</title>
     <style>
         * {
             box-sizing: border-box;
@@ -45,7 +45,6 @@
             background: rgba(255, 255, 255, 0.5);
             border-radius: 50%;
         }
-        /* Button ist jetzt rahmenlos und zeigt nur das reine Asset */
         #action-btn {
             position: absolute;
             bottom: 50px;
@@ -59,25 +58,55 @@
             z-index: 10;
             display: block;
         }
-        /* Debug UI */
+        /* Erweitertes Debug UI für Mobile & Konfiguration */
         #debug-ui {
             position: absolute;
             top: 10px;
             left: 10px;
-            background: rgba(0, 0, 0, 0.85);
+            background: rgba(0, 0, 0, 0.9);
             color: #00ffcc;
             padding: 12px;
             border-radius: 8px;
             font-family: monospace;
             font-size: 11px;
             z-index: 100;
-            max-width: 320px;
+            width: 90%;
+            max-width: 340px;
+            max-height: 85vh;
+            overflow-y: auto;
             display: none;
             border: 1px solid #00ffcc;
+            -webkit-overflow-scrolling: touch;
         }
+        .debug-section {
+            border-bottom: 1px solid #333;
+            padding: 6px 0;
+            margin-bottom: 6px;
+        }
+        .debug-section label {
+            display: block;
+            margin: 4px 0;
+            user-select: text;
+            -webkit-user-select: text;
+        }
+        .cam-edit-row {
+            display: flex;
+            gap: 4px;
+            margin-bottom: 4px;
+        }
+        .cam-edit-row input {
+            background: #222;
+            color: #fff;
+            border: 1px solid #444;
+            padding: 2px 4px;
+            font-size: 11px;
+            border-radius: 2px;
+        }
+        .cam-name { width: 55%; }
+        .cam-range { width: 45%; }
         #debug-json {
             width: 100%;
-            height: 80px;
+            height: 70px;
             background: #111;
             color: #fff;
             border: 1px solid #333;
@@ -85,6 +114,8 @@
             font-size: 10px;
             white-space: pre;
             overflow-x: scroll;
+            user-select: text;
+            -webkit-user-select: text;
         }
         #debug-toggle-btn {
             position: absolute;
@@ -97,6 +128,10 @@
             font-family: monospace;
             z-index: 100;
             border-radius: 4px;
+        }
+        input[type="radio"] {
+            margin-right: 5px;
+            accent-color: #00ffcc;
         }
     </style>
 </head>
@@ -113,11 +148,27 @@
     <button id="debug-toggle-btn" onclick="toggleDebugMode()">Debug (Ctrl+M)</button>
 
     <div id="debug-ui">
-        <div><strong>DEBUG PLACEMENT MODE</strong></div>
-        <div style="margin: 4px 0;">• Click Map: Cycle & Place Cams (1-4)</div>
-        <div>• Shift + Click Map: Place Security Screen</div>
-        <div style="margin-top:8px;">Current JSON Data:</div>
-        <textarea id="debug-json" readonly></textarea>
+        <div class="debug-section"><strong>DEBUG MODE (MOBILE READY)</strong></div>
+        
+        <div class="debug-section">
+            <div><strong>Wähle Element zum Platzieren:</strong></div>
+            <label><input type="radio" name="placement-target" value="cam-0" checked> Cam 1 (Cafeteria)</label>
+            <label><input type="radio" name="placement-target" value="cam-1"> Cam 2 (Weapons)</label>
+            <label><input type="radio" name="placement-target" value="cam-2"> Cam 3 (Navigation)</label>
+            <label><input type="radio" name="placement-target" value="cam-3"> Cam 4 (Corridor)</label>
+            <label><input type="radio" name="placement-target" value="screen"> 🖥️ Security Terminal</label>
+            <small style="color:#aaa;">Danach einfach auf die Map tippen.</small>
+        </div>
+
+        <div class="debug-section">
+            <div><strong>Cams anpassen (Name | Range):</strong></div>
+            <div id="cam-inputs-container"></div>
+        </div>
+
+        <div class="debug-section">
+            <div>Current JSON Data:</div>
+            <textarea id="debug-json" readonly onclick="this.select()"></textarea>
+        </div>
     </div>
 
     <script>
@@ -128,7 +179,7 @@
         const mapHeight = 1080;
         const wallThickness = 15;
 
-        // Configuration JSON (Kann aus dem Debugger kopiert und hier ersetzt werden)
+        // Haupt-Konfigurations-Objekt
         let gameConfig = {
             "securityScreen": { "cx": 300, "cy": 450, "radius": 35, "interactRange": 60 },
             "cameras": [
@@ -251,7 +302,6 @@
             { cx: pivotX + (1208 - pivotX) * 0.71 + 20, cy: pivotY + (491 - pivotY) * 0.77 - 110, radius: 52 * 0.77 }
         ];
 
-        // Texturen Setup
         const textures = {};
         const sources = {
             map: 'assets/Map.png',
@@ -276,7 +326,6 @@
         let isViewingSecurity = false; 
         let nearSecurity = false;      
         let debugMode = false;
-        let activeDebugCamIdx = 0;
 
         const keys = {};
         const joystickZone = document.getElementById('joystick-zone');
@@ -296,7 +345,6 @@
             actionBtn.style.backgroundImage = `url('${isSec ? sources.useSecBtn : sources.useBtn}')`;
         }
 
-        // Inputs
         window.addEventListener('keydown', e => {
             keys[e.key.toLowerCase()] = true;
             if (e.ctrlKey && e.key.toLowerCase() === 'm') {
@@ -311,36 +359,85 @@
             document.getElementById('debug-ui').style.display = debugMode ? 'block' : 'none';
             document.getElementById('debug-toggle-btn').style.background = debugMode ? '#00ffcc' : 'rgba(255,0,0,0.6)';
             document.getElementById('debug-toggle-btn').style.color = debugMode ? '#000' : '#fff';
-            if(debugMode) syncDebugJSON();
+            if(debugMode) {
+                buildCamInputFields();
+                syncDebugJSON();
+            }
+        }
+
+        // Dynamische Generierung der Input Felder für Namen & Weiten im Debug-Menü
+        function buildCamInputFields() {
+            const container = document.getElementById('cam-inputs-container');
+            container.innerHTML = '';
+            gameConfig.cameras.forEach((cam, idx) => {
+                const row = document.createElement('div');
+                row.className = 'cam-edit-row';
+                row.innerHTML = `
+                    <span style="width:20px; color:#aaa;">${idx+1}:</span>
+                    <input type="text" class="cam-name" value="${cam.id}" placeholder="Name" data-idx="${idx}">
+                    <input type="number" class="cam-range" value="${cam.range}" placeholder="Range" data-idx="${idx}">
+                `;
+                container.appendChild(row);
+            });
+
+            // Event-Listener für Live-Updates der Felder
+            container.querySelectorAll('.cam-name').forEach(input => {
+                input.addEventListener('input', e => {
+                    let idx = parseInt(e.target.dataset.idx);
+                    gameConfig.cameras[idx].id = e.target.value;
+                    syncDebugJSON();
+                });
+            });
+            container.querySelectorAll('.cam-range').forEach(input => {
+                input.addEventListener('input', e => {
+                    let idx = parseInt(e.target.dataset.idx);
+                    let val = parseInt(e.target.value) || 0;
+                    gameConfig.cameras[idx].range = val;
+                    syncDebugJSON();
+                });
+            });
         }
 
         function syncDebugJSON() {
             document.getElementById('debug-json').value = JSON.stringify(gameConfig, null, 4);
         }
 
-        // Klick auf Map im Debug Mode verarbeitet Platzierung
-        canvas.addEventListener('click', e => {
+        // Pointer/Click Event-Handling für Desktops UND Mobile Screens gleichermaßen
+        function handleMapClick(clientX, clientY) {
             if (!debugMode) return;
             
-            // Berechne reale Koordinaten auf der Map (inklusive Kamera-Verschiebung)
             let rect = canvas.getBoundingClientRect();
-            let clickX = e.clientX - rect.left + camera.x;
-            let clickY = e.clientY - rect.top + camera.y;
+            let clickX = clientX - rect.left + camera.x;
+            let clickY = clientY - rect.top + camera.y;
 
-            if (keys['shift']) {
-                // Setze Security Monitor Center
+            // Welches Radio-Button Target ist gerade aktiv?
+            const activeTarget = document.querySelector('input[name="placement-target"]:checked').value;
+
+            if (activeTarget === 'screen') {
                 gameConfig.securityScreen.cx = Math.round(clickX);
                 gameConfig.securityScreen.cy = Math.round(clickY);
-            } else {
-                // Rotiere Cam-Auswahl und platziere sie
-                let cam = gameConfig.cameras[activeDebugCamIdx];
-                cam.x = Math.round(clickX);
-                cam.y = Math.round(clickY);
-                activeDebugCamIdx = (activeDebugCamIdx + 1) % gameConfig.cameras.length;
+            } else if (activeTarget.startsWith('cam-')) {
+                let idx = parseInt(activeTarget.split('-')[1]);
+                gameConfig.cameras[idx].x = Math.round(clickX);
+                gameConfig.cameras[idx].y = Math.round(clickY);
             }
             syncDebugJSON();
-        });
+        }
 
+        // Native Event-Abfragen für Klick/Touch auf dem Canvas
+        canvas.addEventListener('click', e => {
+            if(debugMode) handleMapClick(e.clientX, e.clientY);
+        });
+        canvas.addEventListener('touchstart', e => {
+            if(debugMode && e.touches.length > 0) {
+                // Verhindert Scrolling während der Platzierung im Debug Mode
+                e.preventDefault(); 
+                handleMapClick(e.touches[0].clientX, e.touches[0].clientY);
+            }
+        }, { passive: false });
+
+
+        // Joystick Logic
         joystickZone.addEventListener('touchstart', e => {
             if (isViewingSecurity || debugMode) return;
             joystickActive = true;
@@ -458,12 +555,11 @@
             camera.y = Math.max(0, Math.min(mapHeight - canvas.height, camera.y));
         }
 
-        // Berechnet und zeichnet das geometrisch exakte lila Viereck (Sicht-Trapez)
+        // Zeichnet das geometrisch exakte lila Viereck (Sicht-Trapez)
         function drawCameraVisionSquare(cam) {
             let leftAngle = cam.angle - cam.fov / 2;
             let rightAngle = cam.angle + cam.fov / 2;
 
-            // Startkoordinaten der äußeren Ecken des Feldes
             let farLeftX = cam.x + Math.cos(leftAngle) * cam.range;
             let farLeftY = cam.y + Math.sin(leftAngle) * cam.range;
             let farRightX = cam.x + Math.cos(rightAngle) * cam.range;
@@ -485,15 +581,20 @@
             ctx.fillStyle = '#a855f7';
             ctx.beginPath(); ctx.arc(cam.x, cam.y, 6, 0, Math.PI * 2); ctx.fill();
             
-            // Markiert im Debug Mode die aktuell ausgelesene Cam
-            if (debugMode && gameConfig.cameras[activeDebugCamIdx] === cam) {
-                ctx.strokeStyle = '#fff';
-                ctx.lineWidth = 2;
-                ctx.strokeRect(cam.x - 10, cam.y - 10, 20, 20);
+            // Markiert im Debug Mode die im Radio-Feld selektierte Cam visuell
+            if (debugMode) {
+                const activeTarget = document.querySelector('input[name="placement-target"]:checked')?.value;
+                if (activeTarget && activeTarget.startsWith('cam-')) {
+                    let activeIdx = parseInt(activeTarget.split('-')[1]);
+                    if (gameConfig.cameras[activeIdx] === cam) {
+                        ctx.strokeStyle = '#fff';
+                        ctx.lineWidth = 2;
+                        ctx.strokeRect(cam.x - 10, cam.y - 10, 20, 20);
+                    }
+                }
             }
         }
 
-        // Prüft, ob sich ein Punkt innerhalb des Sichtdreiecks/Vierecks der Kamera befindet
         function isPointInVision(px, py, cam) {
             let dx = px - cam.x; let dy = py - cam.y;
             let dist = Math.sqrt(dx*dx + dy*dy);
@@ -569,7 +670,6 @@
                 ctx.fillStyle = '#1e1e24'; ctx.fillRect(0, 0, mapWidth, mapHeight);
             }
 
-            // Render Viereck-Vision-Fields
             gameConfig.cameras.forEach(cam => drawCameraVisionSquare(cam));
 
             // Terminal
