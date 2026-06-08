@@ -476,7 +476,6 @@
             if (playerRole !== 'engineer') return;
             
             if (isVenting) {
-                // Aus Vent austreten
                 isVenting = false;
                 if (currentVentNode) {
                     player.x = currentVentNode.x;
@@ -485,7 +484,6 @@
                 engineerBtn.style.opacity = "0.4";
                 removeVentNavigationButtons();
             } else if (nearVent) {
-                // In Vent eintreten
                 isVenting = true;
                 currentVentNode = nearVent;
                 player.x = nearVent.x;
@@ -533,11 +531,9 @@
             toggleDebugMenu();
         }
 
-        // Canvas Klick/Touch für Entwicklermodus (Vents)
         canvas.addEventListener('click', e => {
             if (!debugMenuOpen && !placementActive && !removalActive) return;
             
-            // Berechne Weltkoordinaten aus Klick
             const rect = canvas.getBoundingClientRect();
             const clickX = e.clientX - rect.left;
             const clickY = e.clientY - rect.top;
@@ -564,8 +560,6 @@
 
         function createVentNavigationButtons(ventNode) {
             removeVentNavigationButtons();
-            
-            // Suche verknüpfte Vents (gleiche ID)
             const targets = vents.filter(v => v.id === ventNode.id && v !== ventNode);
             
             targets.forEach((target, index) => {
@@ -597,8 +591,13 @@
             activeVentButtons = [];
         }
 
-        // Kollisionsprüfung für LinienSegmente (Wände)
-        function checkWallCollision(px, py, radius) {
+        // Gibt die minimale Distanz und den Vektor zur Auflösung zurück (Herausdrücken)
+        function getWallCollisionVector(px, py, radius) {
+            let minPushX = 0;
+            let minPushY = 0;
+            let maxOverlap = 0;
+            let collided = false;
+
             for (let line of wallLines) {
                 const x1 = line.x1;
                 const y1 = line.y1;
@@ -614,23 +613,45 @@
                 const closestX = x1 + t * (x2 - x1);
                 const closestY = y1 + t * (y2 - y1);
 
-                const dist = Math.sqrt((px - closestX)**2 + (py - closestY)**2);
-                if (dist < radius + wallThickness / 2) {
-                    return true;
+                const dx = px - closestX;
+                const dy = py - closestY;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                const minDist = radius + wallThickness / 2;
+
+                if (dist < minDist) {
+                    collided = true;
+                    const overlap = minDist - dist;
+                    // Verhindere Division durch Null bei exaktem Treffpunkt
+                    const nx = dist > 0 ? dx / dist : 0;
+                    const ny = dist > 0 ? dy / dist : 1;
+
+                    // Bei Wänden lösen wir direkt auf das stärkste Overlap auf
+                    if (overlap > maxOverlap) {
+                        maxOverlap = overlap;
+                        minPushX = nx * overlap;
+                        minPushY = ny * overlap;
+                    }
                 }
             }
-            return false;
+            return collided ? { x: minPushX, y: minPushY } : null;
         }
 
-        // Kollisionsprüfung für runde Tische
-        function checkTableCollision(px, py, radius) {
+        // Gibt den Vektor zurück, um den Spieler aus runden Tischen herauszudrücken
+        function getTableCollisionVector(px, py, radius) {
             for (let table of finalTables) {
-                const dist = Math.sqrt((px - table.cx)**2 + (py - table.cy)**2);
-                if (dist < radius + table.radius) {
-                    return true;
+                const dx = px - table.cx;
+                const dy = py - table.cy;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                const minDist = radius + table.radius;
+
+                if (dist < minDist) {
+                    const overlap = minDist - dist;
+                    const nx = dist > 0 ? dx / dist : 0;
+                    const ny = dist > 0 ? dy / dist : 1;
+                    return { x: nx * overlap, y: ny * overlap };
                 }
             }
-            return false;
+            return null;
         }
 
         function isPointInVision(x, y, cam) {
@@ -659,11 +680,9 @@
             ctx.fill();
         }
 
-        // Haupt-Gameloop
         function gameLoop() {
             if (!gameActive) return;
 
-            // Tastatur-Bewegungsvektoren zurücksetzen falls genutzt
             if (!joystickActive) {
                 player.vx = 0;
                 player.vy = 0;
@@ -673,27 +692,46 @@
                 if (keys['d'] || keys['arrowright']) { player.vx = player.speed; player.facingRight = true; }
             }
 
-            // Bewegung verarbeiten, wenn man nicht im Vent sitzt oder Security-Monitore anschaut
             if (!isVenting && !isViewingSecurity) {
-                const nextX = player.x + player.vx;
-                if (!checkWallCollision(nextX, player.y, player.radius) && !checkTableCollision(nextX, player.y, player.radius)) {
-                    player.x = nextX;
+                // Schritt 1: Temporäre Bewegung auf X-Achse anwenden
+                player.x += player.vx;
+                
+                // Sofortiges Rausdrücken falls Kollision mit Wänden
+                let wallPush = getWallCollisionVector(player.x, player.y, player.radius);
+                if (wallPush) {
+                    player.x += wallPush.x;
+                    player.y += wallPush.y;
                 }
-                const nextY = player.y + player.vy;
-                if (!checkWallCollision(player.x, nextY, player.radius) && !checkTableCollision(player.x, nextY, player.radius)) {
-                    player.y = nextY;
+                // Sofortiges Rausdrücken falls Kollision mit Tischen
+                let tablePush = getTableCollisionVector(player.x, player.y, player.radius);
+                if (tablePush) {
+                    player.x += tablePush.x;
+                    player.y += tablePush.y;
                 }
 
-                // Mapgrenzen einhalten
+                // Schritt 2: Temporäre Bewegung auf Y-Achse anwenden
+                player.y += player.vy;
+                
+                // Erneutes Rausdrücken für die Y-Bewegung
+                wallPush = getWallCollisionVector(player.x, player.y, player.radius);
+                if (wallPush) {
+                    player.x += wallPush.x;
+                    player.y += wallPush.y;
+                }
+                tablePush = getTableCollisionVector(player.x, player.y, player.radius);
+                if (tablePush) {
+                    player.x += tablePush.x;
+                    player.y += tablePush.y;
+                }
+
+                // Spielfeldgrenzen einhalten
                 player.x = Math.max(player.radius, Math.min(mapWidth - player.radius, player.x));
                 player.y = Math.max(player.radius, Math.min(mapHeight - player.radius, player.y));
             }
 
-            // Kamera folgt flüssig dem Spieler
             camera.x = player.x - canvas.width / 2;
             camera.y = player.y - canvas.height / 2;
 
-            // Interaktionen prüfen (Security Screen)
             const secDist = Math.sqrt((player.x - gameConfig.securityScreen.cx)**2 + (player.y - gameConfig.securityScreen.cy)**2);
             if (secDist < gameConfig.securityScreen.interactRange) {
                 if (!nearSecurity) {
@@ -708,7 +746,6 @@
                 }
             }
 
-            // Interaktionen prüfen (Vents für Engineer)
             nearVent = null;
             if (playerRole === 'engineer' && !isVenting) {
                 for (let vent of vents) {
@@ -723,11 +760,9 @@
                 engineerBtn.style.opacity = (nearVent || isVenting) ? "1.0" : "0.4";
             }
 
-            // RENDER-SCHRITT
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
             if (isViewingSecurity) {
-                // Überwachungskamera-Ansicht rendern (4 Grid-Quadrate)
                 const w = canvas.width / 2;
                 const h = canvas.height / 2;
                 
@@ -767,7 +802,6 @@
                     ctx.fillText(`CAM: ${cam.id}`, pos.x + 15, pos.y + 28);
                 });
 
-                // Roter statischer Balken-Effekt für Monitor-Optik
                 ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
                 ctx.fillRect(canvas.width / 2 - 150, canvas.height - 50, 300, 40);
                 ctx.fillStyle = '#ef4444';
@@ -777,16 +811,13 @@
                 ctx.textAlign = 'left';
 
             } else {
-                // Normale Gameplay-Weltansicht rendern
                 ctx.save();
                 ctx.translate(-camera.x, -camera.y);
 
-                // Karte zeichnen
                 if (textures.map && textures.map.complete) {
                     ctx.drawImage(textures.map, 0, 0, mapWidth, mapHeight);
                 }
 
-                // Vents (Lüftungsschlitze) zeichnen
                 vents.forEach(vent => {
                     ctx.fillStyle = 'rgba(50, 50, 50, 0.8)';
                     ctx.strokeStyle = '#a855f7';
@@ -803,7 +834,6 @@
                     }
                 });
 
-                // Security Screen Hitbox rendern
                 if (debugMode) {
                     ctx.fillStyle = 'rgba(59, 130, 246, 0.3)';
                     ctx.beginPath();
@@ -811,7 +841,6 @@
                     ctx.fill();
                 }
 
-                // Kameras Sichtkegel rendern
                 gameConfig.cameras.forEach(cam => {
                     drawCameraVisionSquare(cam);
                     ctx.fillStyle = '#ef4444';
@@ -820,7 +849,6 @@
                     ctx.fill();
                 });
 
-                // Runde Tische Kollisionskreise rendern
                 if (debugMode) {
                     finalTables.forEach(table => {
                         ctx.fillStyle = 'rgba(234, 179, 8, 0.2)';
@@ -833,7 +861,6 @@
                     });
                 }
 
-                // Wand-LinienSegmente im Debug-Mode rendern
                 if (debugMode) {
                     ctx.strokeStyle = 'rgba(239, 68, 68, 0.7)';
                     ctx.lineWidth = wallThickness;
@@ -846,7 +873,6 @@
                     });
                 }
 
-                // Spieler-Figur zeichnen (wenn nicht im Vent versteckt)
                 if (!isVenting) {
                     ctx.save();
                     ctx.translate(player.x, player.y);
@@ -880,7 +906,6 @@
                 ctx.restore();
             }
 
-            // Schleife fortsetzen
             requestAnimationFrame(gameLoop);
         }
     </script>
