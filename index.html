@@ -186,7 +186,6 @@
             <input type="number" id="vent-size" class="debug-input" placeholder="Radius" value="25">
             <button class="panel-btn" onclick="startVentPlacement()">Vent platzieren</button>
             <button class="panel-btn" style="border-color:#ef4444" onclick="startVentRemoval()">Vent entfernen</button>
-            <button class="panel-btn" style="border-color:#3b82f6" onclick="copyVentsJSON()">JSON kopieren</button>
             <button class="panel-btn" style="border-color:#10b981" onclick="closeDebugMenu()">Schließen</button>
         </div>
         <p id="debug-status-text">Hitboxen sind permanent aktiv.</p>
@@ -212,7 +211,6 @@
         let playerRole = null;
         let gameActive = false;
         
-        // Hitboxen standardmäßig dauerhaft anzeigen
         let debugMode = true;
         let debugMenuOpen = false;
         let placementActive = false;
@@ -225,6 +223,7 @@
         let isVenting = false;
         let currentVentNode = null;
         let activeVentButtons = [];
+        
         let gameConfig = {
             "securityScreen": { "cx": 587, "cy": 376, "radius": 35, "interactRange": 60 },
             "cameras": [
@@ -234,6 +233,7 @@
                 { "id": "Navigation Hallway", "x": 1653, "y": 431, "angle": 0, "fov": 1.04, "range": 190 }
             ]
         };
+
         const wallLines = [
             { "x1": 1206, "y1": 34,  "x2": 1333, "y2": 165 }, { "x1": 1326, "y1": 146, "x2": 1324, "y2": 215 },
             { "x1": 1198, "y1": 35,  "x2": 901,  "y2": 33  }, { "x1": 944,  "y1": 32,  "x2": 866,  "y2": 109 },
@@ -250,7 +250,7 @@
             { "x1": 535,  "y1": 274, "x2": 522,  "y2": 164 }, { "x1": 521,  "y1": 350, "x2": 473,  "y2": 353 },
             { "x1": 471,  "y1": 356, "x2": 469,  "y2": 477 }, { "x1": 472,  "y1": 479, "x2": 522,  "y2": 476 },
             { "x1": 523,  "y1": 480, "x2": 523,  "y2": 406 }, { "x1": 524,  "y1": 436, "x2": 566,  "y2": 391 },
-            { "x1": 566,  "y1": 390, "x2": 0.5,   "y2": 391 }, { "x1": 608,  "y1": 395, "x2": 634,  "y2": 419 },
+            { "x1": 566,  "y1": 390, "x2": 601,  "y2": 391 }, { "x1": 608,  "y1": 395, "x2": 634,  "y2": 419 },
             { "x1": 639,  "y1": 422, "x2": 645,  "y2": 576 }, { "x1": 636,  "y1": 580, "x2": 538,  "y2": 584 },
             { "x1": 532,  "y1": 585, "x2": 527,  "y2": 532 }, { "x1": 527,  "y1": 531, "x2": 474,  "y2": 531 },
             { "x1": 473,  "y1": 536, "x2": 470,  "y2": 634 }, { "x1": 473,  "y1": 634, "x2": 471,  "y2": 664 },
@@ -283,7 +283,7 @@
             { "x1": 338,  "y1": 583, "x2": 340,  "y2": 531 }, { "x1": 342,  "y1": 528, "x2": 400,  "y2": 528 },
             { "x1": 400,  "y1": 533, "x2": 402,  "y2": 635 }, { "x1": 401,  "y1": 637, "x2": 399,  "y2": 665 },
             { "x1": 397,  "y1": 667, "x2": 340,  "y2": 665 }, { "x1": 75,   "y1": 614, "x2": 79,   "y2": 629 },
-            { "x1": 337,  "y1": 668, "x2": 338,  "y2": 863 }, { "x1": 339,  "y1": 690, "x2": 475,  "y2": 694 },
+            { "x1": 337,  "y1": 668, "x2": 338,  "y2": 687 }, { "x1": 339,  "y1": 690, "x2": 475,  "y2": 694 },
             { "x1": 481,  "y1": 696, "x2": 478,  "y2": 784 }, { "x1": 478,  "y1": 785, "x2": 340,  "y2": 790 },
             { "x1": 337,  "y1": 792, "x2": 330,  "y2": 809 }, { "x1": 330,  "y1": 811, "x2": 372,  "y2": 848 },
             { "x1": 375,  "y1": 850, "x2": 520,  "y2": 854 }, { "x1": 523,  "y1": 855, "x2": 525,  "y2": 790 },
@@ -370,18 +370,29 @@
             };
         }
 
-        let player = { x: 1060, y: 260, radius: 10, width: 21, height: 27, speed: 4.5, vx: 0, vy: 0, facingRight: true };
+        let player = {
+            x: 1060,
+            y: 260,
+            radius: 10,
+            width: 21,
+            height: 27,
+            speed: 4.5,
+            vx: 0,
+            vy: 0,
+            facingRight: true
+        };
+
         let camera = { x: 0, y: 0 };
         let isViewingSecurity = false;
         let nearSecurity = false;
         let nearVent = null;
-
+        
         const keys = {};
         const joystickZone = document.getElementById('joystick-zone');
         const joystickKnob = document.getElementById('joystick-knob');
         const actionBtn = document.getElementById('action-btn');
         const engineerBtn = document.getElementById('engineer-btn');
-
+        
         let joystickActive = false;
         let joystickStartX = 0, joystickStartY = 0;
 
@@ -392,135 +403,42 @@
         window.addEventListener('resize', resizeCanvas);
         resizeCanvas();
 
-        function selectRole(role) {
-            playerRole = role;
-            document.getElementById('role-selection-overlay').style.display = 'none';
-            if (role === 'engineer') {
-                engineerBtn.style.display = 'block';
-            }
-            gameActive = true;
+        function updateButtonTexture(isSec) {
+            actionBtn.style.backgroundImage = `url('${isSec ? sources.useSecBtn : sources.useBtn}')`;
         }
 
-        function toggleDebugMenu() {
-            debugMenuOpen = !debugMenuOpen;
-            document.getElementById('debug-overlay').style.display = debugMenuOpen ? 'flex' : 'none';
-            if (!debugMenuOpen) {
-                placementActive = false;
-                removalActive = false;
-            }
-        }
-
-        function closeDebugMenu() {
-            debugMenuOpen = false;
-            document.getElementById('debug-overlay').style.display = 'none';
-            placementActive = false;
-            removalActive = false;
-        }
-
-        function startVentPlacement() {
-            currentVentIdInput = document.getElementById('vent-id').value.trim() || "1";
-            currentVentSizeInput = parseInt(document.getElementById('vent-size').value) || 25;
-            placementActive = true;
-            removalActive = false;
-            debugMenuOpen = false;
-            document.getElementById('debug-overlay').style.display = 'none';
-            document.getElementById('debug-status-text').innerText = `Klicke auf die Map, um Vent ID ${currentVentIdInput} zu platzieren.`;
-        }
-
-        function startVentRemoval() {
-            removalActive = true;
-            placementActive = false;
-            debugMenuOpen = false;
-            document.getElementById('debug-overlay').style.display = 'none';
-            document.getElementById('debug-status-text').innerText = "Klicke auf ein Vent auf der Map, um es zu entfernen.";
-        }
-
-        function copyVentsJSON() {
-            const jsonStr = JSON.stringify(vents, null, 4);
-            navigator.clipboard.writeText(jsonStr).then(() => {
-                const statusText = document.getElementById('debug-status-text');
-                const oldText = statusText.innerText;
-                statusText.innerText = "JSON erfolgreich kopiert!";
-                setTimeout(() => { statusText.innerText = oldText; }, 2000);
-            }).catch(err => {
-                console.error("Fehler beim Kopieren: ", err);
-                alert("Kopieren fehlgeschlagen. JSON in Konsole ausgegeben.");
-                console.log(jsonStr);
-            });
-        }
-
-        function handleMapClick(e) {
-            const clientX = e.clientX || (e.touches && e.touches[0].clientX);
-            const clientY = e.clientY || (e.touches && e.touches[0].clientY);
-            if (clientX === undefined || clientY === undefined) return;
-
-            const worldX = clientX - (canvas.width / 2 - player.x);
-            const worldY = clientY - (canvas.height / 2 - player.y);
-
-            if (placementActive) {
-                vents.push({
-                    id: currentVentIdInput,
-                    cx: Math.round(worldX),
-                    cy: Math.round(worldY),
-                    radius: currentVentSizeInput
-                });
-                placementActive = false;
-                document.getElementById('debug-status-text').innerText = `Vent ${currentVentIdInput} platziert bei (${Math.round(worldX)}, ${Math.round(worldY)}).`;
-            } else if (removalActive) {
-                let foundIndex = -1;
-                for (let i = 0; i < vents.length; i++) {
-                    const dx = worldX - vents[i].cx;
-                    const dy = worldY - vents[i].cy;
-                    if (Math.sqrt(dx * dx + dy * dy) <= vents[i].radius + 10) {
-                        foundIndex = i;
-                        break;
-                    }
-                }
-                if (foundIndex !== -1) {
-                    const removed = vents.splice(foundIndex, 1);
-                    document.getElementById('debug-status-text').innerText = `Vent ${removed[0].id} erfolgreich entfernt.`;
-                } else {
-                    document.getElementById('debug-status-text').innerText = "Kein Vent an dieser Position gefunden.";
-                }
-                removalActive = false;
-            }
-        }
-
-        canvas.addEventListener('mousedown', (e) => {
-            if (placementActive || removalActive) {
-                handleMapClick(e);
-            }
+        window.addEventListener('keydown', e => {
+            if (!gameActive) return;
+            if (e.key.toLowerCase() === 'm') toggleDebugMenu();
+            keys[e.key.toLowerCase()] = true;
         });
-        canvas.addEventListener('touchstart', (e) => {
-            if (placementActive || removalActive) {
-                handleMapClick(e);
-            }
-        }, { passive: true });
 
-        window.addEventListener('keydown', (e) => { keys[e.code] = true; });
-        window.addEventListener('keyup', (e) => { keys[e.code] = false; });
+        window.addEventListener('keyup', e => {
+            keys[e.key.toLowerCase()] = false;
+        });
 
-        joystickZone.addEventListener('touchstart', (e) => {
-            if (isViewingSecurity) return;
+        // Joystick-Steuerung
+        joystickZone.addEventListener('touchstart', e => {
+            if (!gameActive || isViewingSecurity) return;
             joystickActive = true;
             const touch = e.touches[0];
             const rect = joystickZone.getBoundingClientRect();
             joystickStartX = rect.left + rect.width / 2;
             joystickStartY = rect.top + rect.height / 2;
             handleJoystickMove(touch.clientX, touch.clientY);
-        }, { passive: true });
+        });
 
-        joystickZone.addEventListener('touchmove', (e) => {
-            if (!joystickActive || isViewingSecurity) return;
+        joystickZone.addEventListener('touchmove', e => {
+            if (!joystickActive) return;
             const touch = e.touches[0];
             handleJoystickMove(touch.clientX, touch.clientY);
-        }, { passive: true });
+        });
 
         joystickZone.addEventListener('touchend', () => {
             joystickActive = false;
+            joystickKnob.style.transform = 'translate(0px, 0px)';
             player.vx = 0;
             player.vy = 0;
-            joystickKnob.style.transform = `translate(0px, 0px)`;
         });
 
         function handleJoystickMove(clientX, clientY) {
@@ -535,388 +453,436 @@
             }
 
             joystickKnob.style.transform = `translate(${dx}px, ${dy}px)`;
-
+            
+            const speedScale = Math.min(distance / maxRadius, 1);
             const angle = Math.atan2(dy, dx);
-            const intensity = Math.min(distance / maxRadius, 1);
-            player.vx = Math.cos(angle) * player.speed * intensity;
-            player.vy = Math.sin(angle) * player.speed * intensity;
-
+            player.vx = Math.cos(angle) * player.speed * speedScale;
+            player.vy = Math.sin(angle) * player.speed * speedScale;
+            
             if (player.vx > 0.2) player.facingRight = true;
             if (player.vx < -0.2) player.facingRight = false;
         }
 
-        function updateButtonTexture(isNear) {
-            if (isViewingSecurity) {
-                actionBtn.style.backgroundImage = `url('${sources.useSecBtn}')`;
-            } else {
-                actionBtn.style.backgroundImage = `url('${sources.useBtn}')`;
+        // Action-Buttons Touch Handler
+        actionBtn.addEventListener('touchstart', e => {
+            e.preventDefault();
+            if (nearSecurity) {
+                isViewingSecurity = !isViewingSecurity;
             }
-            actionBtn.style.opacity = isNear ? '1' : '0.4';
+        });
+
+        engineerBtn.addEventListener('touchstart', e => {
+            e.preventDefault();
+            if (playerRole !== 'engineer') return;
+            
+            if (isVenting) {
+                // Aus Vent austreten
+                isVenting = false;
+                if (currentVentNode) {
+                    player.x = currentVentNode.x;
+                    player.y = currentVentNode.y;
+                }
+                engineerBtn.style.opacity = "0.4";
+                removeVentNavigationButtons();
+            } else if (nearVent) {
+                // In Vent eintreten
+                isVenting = true;
+                currentVentNode = nearVent;
+                player.x = nearVent.x;
+                player.y = nearVent.y;
+                player.vx = 0;
+                player.vy = 0;
+                engineerBtn.style.opacity = "1.0";
+                createVentNavigationButtons(nearVent);
+            }
+        });
+
+        function selectRole(role) {
+            playerRole = role;
+            document.getElementById('role-selection-overlay').style.display = 'none';
+            if (role === 'engineer') {
+                engineerBtn.style.display = 'block';
+            }
+            gameActive = true;
+            requestAnimationFrame(gameLoop);
         }
 
-        function checkInteractions() {
-            if (isViewingSecurity) {
-                nearSecurity = true;
-                updateButtonTexture(true);
-                return;
+        function toggleDebugMenu() {
+            debugMenuOpen = !debugMenuOpen;
+            document.getElementById('debug-overlay').style.display = debugMenuOpen ? 'flex' : 'none';
+        }
+
+        function closeDebugMenu() {
+            debugMenuOpen = false;
+            document.getElementById('debug-overlay').style.display = 'none';
+            placementActive = false;
+            removalActive = false;
+        }
+
+        function startVentPlacement() {
+            placementActive = true;
+            removalActive = false;
+            currentVentIdInput = document.getElementById('vent-id').value || "1";
+            currentVentSizeInput = parseInt(document.getElementById('vent-size').value) || 25;
+            toggleDebugMenu();
+        }
+
+        function startVentRemoval() {
+            removalActive = true;
+            placementActive = false;
+            toggleDebugMenu();
+        }
+
+        // Canvas Klick/Touch für Entwicklermodus (Vents)
+        canvas.addEventListener('click', e => {
+            if (!debugMenuOpen && !placementActive && !removalActive) return;
+            
+            // Berechne Weltkoordinaten aus Klick
+            const rect = canvas.getBoundingClientRect();
+            const clickX = e.clientX - rect.left;
+            const clickY = e.clientY - rect.top;
+            
+            const worldX = clickX - (canvas.width / 2 - player.x);
+            const worldY = clickY - (canvas.height / 2 - player.y);
+
+            if (placementActive) {
+                vents.push({
+                    id: currentVentIdInput,
+                    x: worldX,
+                    y: worldY,
+                    radius: currentVentSizeInput
+                });
+                placementActive = false;
+            } else if (removalActive) {
+                vents = vents.filter(v => {
+                    const dist = Math.sqrt((v.x - worldX)**2 + (v.y - worldY)**2);
+                    return dist > v.radius;
+                });
+                removalActive = false;
+            }
+        });
+
+        function createVentNavigationButtons(ventNode) {
+            removeVentNavigationButtons();
+            
+            // Suche verknüpfte Vents (gleiche ID)
+            const targets = vents.filter(v => v.id === ventNode.id && v !== ventNode);
+            
+            targets.forEach((target, index) => {
+                const btn = document.createElement('button');
+                btn.className = 'panel-btn';
+                btn.style.position = 'absolute';
+                btn.style.bottom = `${150 + index * 60}px`;
+                btn.style.left = '50%';
+                btn.style.transform = 'translateX(-50%)';
+                btn.style.borderColor = '#a855f7';
+                btn.innerText = `Zu Vent #${index + 1}`;
+                
+                btn.addEventListener('touchstart', e => {
+                    e.preventDefault();
+                    if (!isVenting) return;
+                    currentVentNode = target;
+                    player.x = target.x;
+                    player.y = target.y;
+                    createVentNavigationButtons(target);
+                });
+                
+                document.body.appendChild(btn);
+                activeVentButtons.push(btn);
+            });
+        }
+
+        function removeVentNavigationButtons() {
+            activeVentButtons.forEach(btn => btn.remove());
+            activeVentButtons = [];
+        }
+
+        // Kollisionsprüfung für LinienSegmente (Wände)
+        function checkWallCollision(px, py, radius) {
+            for (let line of wallLines) {
+                const x1 = line.x1;
+                const y1 = line.y1;
+                const x2 = line.x2;
+                const y2 = line.y2;
+
+                const l2 = (x2 - x1)**2 + (y2 - y1)**2;
+                if (l2 === 0) continue;
+
+                let t = ((px - x1) * (x2 - x1) + (py - y1) * (y2 - y1)) / l2;
+                t = Math.max(0, Math.min(1, t));
+
+                const closestX = x1 + t * (x2 - x1);
+                const closestY = y1 + t * (y2 - y1);
+
+                const dist = Math.sqrt((px - closestX)**2 + (py - closestY)**2);
+                if (dist < radius + wallThickness / 2) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        // Kollisionsprüfung für runde Tische
+        function checkTableCollision(px, py, radius) {
+            for (let table of finalTables) {
+                const dist = Math.sqrt((px - table.cx)**2 + (py - table.cy)**2);
+                if (dist < radius + table.radius) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        function isPointInVision(x, y, cam) {
+            const dx = x - cam.x;
+            const dy = y - cam.y;
+            const dist = Math.sqrt(dx*dx + dy*dy);
+            if (dist > cam.range) return false;
+            let angle = Math.atan2(dy, dx);
+            if (angle < 0) angle += Math.PI * 2;
+            let diff = Math.abs(angle - cam.angle);
+            if (diff > Math.PI) diff = Math.PI * 2 - diff;
+            return diff <= cam.fov / 2;
+        }
+
+        function drawCameraVisionSquare(cam) {
+            ctx.fillStyle = 'rgba(239, 68, 68, 0.15)';
+            ctx.beginPath();
+            ctx.moveTo(cam.x, cam.y);
+            const steps = 20;
+            const startAngle = cam.angle - cam.fov / 2;
+            for (let i = 0; i <= steps; i++) {
+                const a = startAngle + (cam.fov * i / steps);
+                ctx.lineTo(cam.x + Math.cos(a) * cam.range, cam.y + Math.sin(a) * cam.range);
+            }
+            ctx.closePath();
+            ctx.fill();
+        }
+
+        // Haupt-Gameloop
+        function gameLoop() {
+            if (!gameActive) return;
+
+            // Tastatur-Bewegungsvektoren zurücksetzen falls genutzt
+            if (!joystickActive) {
+                player.vx = 0;
+                player.vy = 0;
+                if (keys['w'] || keys['arrowup']) player.vy = -player.speed;
+                if (keys['s'] || keys['arrowdown']) player.vy = player.speed;
+                if (keys['a'] || keys['arrowleft']) { player.vx = -player.speed; player.facingRight = false; }
+                if (keys['d'] || keys['arrowright']) { player.vx = player.speed; player.facingRight = true; }
             }
 
-            const sec = gameConfig.securityScreen;
-            const distSec = Math.hypot(player.x - sec.cx, player.y - sec.cy);
-            nearSecurity = (distSec <= sec.interactRange);
+            // Bewegung verarbeiten, wenn man nicht im Vent sitzt oder Security-Monitore anschaut
+            if (!isVenting && !isViewingSecurity) {
+                const nextX = player.x + player.vx;
+                if (!checkWallCollision(nextX, player.y, player.radius) && !checkTableCollision(nextX, player.y, player.radius)) {
+                    player.x = nextX;
+                }
+                const nextY = player.y + player.vy;
+                if (!checkWallCollision(player.x, nextY, player.radius) && !checkTableCollision(player.x, nextY, player.radius)) {
+                    player.y = nextY;
+                }
 
+                // Mapgrenzen einhalten
+                player.x = Math.max(player.radius, Math.min(mapWidth - player.radius, player.x));
+                player.y = Math.max(player.radius, Math.min(mapHeight - player.radius, player.y));
+            }
+
+            // Kamera folgt flüssig dem Spieler
+            camera.x = player.x - canvas.width / 2;
+            camera.y = player.y - canvas.height / 2;
+
+            // Interaktionen prüfen (Security Screen)
+            const secDist = Math.sqrt((player.x - gameConfig.securityScreen.cx)**2 + (player.y - gameConfig.securityScreen.cy)**2);
+            if (secDist < gameConfig.securityScreen.interactRange) {
+                if (!nearSecurity) {
+                    nearSecurity = true;
+                    updateButtonTexture(true);
+                }
+            } else {
+                if (nearSecurity) {
+                    nearSecurity = false;
+                    isViewingSecurity = false;
+                    updateButtonTexture(false);
+                }
+            }
+
+            // Interaktionen prüfen (Vents für Engineer)
             nearVent = null;
-            if (playerRole === 'engineer') {
-                for (let v of vents) {
-                    const distV = Math.hypot(player.x - v.cx, player.y - v.cy);
-                    if (distV <= v.radius + 20) {
-                        nearVent = v;
+            if (playerRole === 'engineer' && !isVenting) {
+                for (let vent of vents) {
+                    const vDist = Math.sqrt((player.x - vent.x)**2 + (player.y - vent.y)**2);
+                    if (vDist < vent.radius + 15) {
+                        nearVent = vent;
                         break;
                     }
                 }
             }
-
-            updateButtonTexture(nearSecurity);
-
             if (playerRole === 'engineer') {
-                if (isVenting || nearVent) {
-                    engineerBtn.style.opacity = '1';
-                } else {
-                    engineerBtn.style.opacity = '0.4';
-                }
-            }
-        }
-
-        function triggerAction() {
-            if (nearSecurity) {
-                isViewingSecurity = !isViewingSecurity;
-                updateButtonTexture(true);
-            }
-        }
-
-        function triggerVent() {
-            if (playerRole !== 'engineer') return;
-
-            if (isVenting) {
-                isVenting = false;
-                player.x = currentVentNode.cx;
-                player.y = currentVentNode.cy + 15;
-                currentVentNode = null;
-                activeVentButtons = [];
-            } else if (nearVent) {
-                isVenting = true;
-                currentVentNode = nearVent;
-                player.vx = 0;
-                player.vy = 0;
-                setupVentNavigation();
-            }
-        }
-
-        function setupVentNavigation() {
-            activeVentButtons = [];
-            vents.forEach(v => {
-                if (v !== currentVentNode && v.id === currentVentNode.id) {
-                    activeVentButtons.push(v);
-                }
-            });
-        }
-
-        function navigateToVent(targetVent) {
-            if (!isVenting) return;
-            currentVentNode = targetVent;
-            setupVentNavigation();
-        }
-
-        function handleVentTouch(clientX, clientY) {
-            const camX = canvas.width / 2 - currentVentNode.cx;
-            const camY = canvas.height / 2 - currentVentNode.cy;
-
-            for (let v of activeVentButtons) {
-                const screenX = v.cx + camX;
-                const screenY = v.cy + camY;
-                if (Math.hypot(clientX - screenX, clientY - screenY) <= 25) {
-                    navigateToVent(v);
-                    break;
-                }
-            }
-        }
-
-        actionBtn.addEventListener('touchstart', (e) => { e.stopPropagation(); triggerAction(); }, { passive: false });
-        actionBtn.addEventListener('mousedown', (e) => { e.stopPropagation(); triggerAction(); });
-        engineerBtn.addEventListener('touchstart', (e) => { e.stopPropagation(); triggerVent(); }, { passive: false });
-        engineerBtn.addEventListener('mousedown', (e) => { e.stopPropagation(); triggerVent(); });
-
-        window.addEventListener('touchstart', (e) => {
-            if (isVenting && currentVentNode) {
-                const touch = e.touches[0];
-                handleVentTouch(touch.clientX, touch.clientY);
-            }
-        }, { passive: true });
-
-        window.addEventListener('mousedown', (e) => {
-            if (isVenting && currentVentNode) {
-                handleVentTouch(e.clientX, e.clientY);
-            }
-        });
-
-        function checkWallCollision(newX, newY) {
-            const r = player.radius;
-            
-            for (let line of wallLines) {
-                let x1 = line.x1, y1 = line.y1, x2 = line.x2, y2 = line.y2;
-                let A = newX - x1, B = newY - y1, C = x2 - x1, D = y2 - y1;
-                let dot = A * C + B * D;
-                let lenSq = C * C + D * D;
-                let param = -1;
-                if (lenSq !== 0) param = dot / lenSq;
-
-                let xx, yy;
-                if (param < 0) { xx = x1; yy = y1; }
-                else if (param > 1) { xx = x2; yy = y2; }
-                else { xx = x1 + param * C; yy = y1 + param * D; }
-
-                let dx = newX - xx, dy = newY - yy;
-                let dist = Math.sqrt(dx * dx + dy * dy);
-                if (dist < r + wallThickness / 2) return true;
+                engineerBtn.style.opacity = (nearVent || isVenting) ? "1.0" : "0.4";
             }
 
-            for (let table of finalTables) {
-                if (Math.hypot(newX - table.cx, newY - table.cy) < r + table.radius) return true;
-            }
+            // RENDER-SCHRITT
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            return false;
-        }
+            if (isViewingSecurity) {
+                // Überwachungskamera-Ansicht rendern (4 Grid-Quadrate)
+                const w = canvas.width / 2;
+                const h = canvas.height / 2;
+                
+                gameConfig.cameras.forEach((cam, index) => {
+                    const pos = [
+                        { x: 0, y: 0 }, { x: w, y: 0 },
+                        { x: 0, y: h }, { x: w, y: h }
+                    ][index];
 
-        function updatePlayerPosition() {
-            if (!joystickActive && gameActive && !isViewingSecurity) {
-                player.vx = 0;
-                player.vy = 0;
-                if (keys['KeyW'] || keys['ArrowUp']) player.vy = -player.speed;
-                if (keys['KeyS'] || keys['ArrowDown']) player.vy = player.speed;
-                if (keys['KeyA'] || keys['ArrowLeft']) { player.vx = -player.speed; player.facingRight = false; }
-                if (keys['KeyD'] || keys['ArrowRight']) { player.vx = player.speed; player.facingRight = true; }
-            }
+                    ctx.save();
+                    ctx.beginPath();
+                    ctx.rect(pos.x, pos.y, w, h);
+                    ctx.clip();
 
-            if ((player.vx !== 0 || player.vy !== 0) && !isViewingSecurity) {
-                let nextX = player.x + player.vx;
-                let nextY = player.y + player.vy;
+                    ctx.translate(pos.x - cam.x + w / 2, pos.y - cam.y + h / 2);
+                    if (textures.map && textures.map.complete) ctx.drawImage(textures.map, 0, 0, mapWidth, mapHeight);
+                    
+                    drawCameraVisionSquare(cam);
+                    
+                    if (!isVenting && isPointInVision(player.x, player.y, cam)) {
+                        ctx.save();
+                        ctx.translate(player.x, player.y);
+                        if (!player.facingRight) ctx.scale(-1, 1);
+                        if (textures.player && textures.player.complete) ctx.drawImage(textures.player, -player.width/2, -player.height/2, player.width, player.height);
+                        ctx.restore();
+                    }
+                    ctx.restore();
 
-                if (!checkWallCollision(nextX, player.y)) player.x = nextX;
-                if (!checkWallCollision(player.x, nextY)) player.y = nextY;
+                    ctx.strokeStyle = '#3b82f6';
+                    ctx.lineWidth = 3;
+                    ctx.strokeRect(pos.x, pos.y, w, h);
 
-                player.x = Math.max(player.radius, Math.min(mapWidth - player.radius, player.x));
-                player.y = Math.max(player.radius, Math.min(mapHeight - player.radius, player.y));
-            }
-        }
+                    ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+                    ctx.fillRect(pos.x + 10, pos.y + 10, 185, 30);
+                    ctx.fillStyle = '#00ffcc';
+                    ctx.font = 'bold 11px monospace';
+                    ctx.fillText(`CAM: ${cam.id}`, pos.x + 15, pos.y + 28);
+                });
 
-        function isPointInVision(px, py, cam) {
-            let dx = px - cam.x;
-            let dy = py - cam.y;
-            let dist = Math.sqrt(dx * dx + dy * dy);
-            if (dist > cam.range) return false;
-            let angleToPoint = Math.atan2(dy, dx);
-            let diff = angleToPoint - cam.angle;
-            while (diff < -Math.PI) diff += Math.PI * 2;
-            while (diff > Math.PI) diff -= Math.PI * 2;
-            return Math.abs(diff) <= cam.fov / 2;
-        }
+                // Roter statischer Balken-Effekt für Monitor-Optik
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+                ctx.fillRect(canvas.width / 2 - 150, canvas.height - 50, 300, 40);
+                ctx.fillStyle = '#ef4444';
+                ctx.font = 'bold 14px monospace';
+                ctx.textAlign = 'center';
+                ctx.fillText("LIVE CAMERA FEEDS - TOUCH USE TO EXIT", canvas.width / 2, canvas.height - 25);
+                ctx.textAlign = 'left';
 
-        function drawCameraVisionSquare(cam) {
-            ctx.fillStyle = 'rgba(59, 130, 246, 0.12)';
-            ctx.beginPath();
-            ctx.moveTo(cam.x, cam.y);
-            let startAngle = cam.angle - cam.fov / 2;
-            let endAngle = cam.angle + cam.fov / 2;
-            ctx.arc(cam.x, cam.y, cam.range, startAngle, endAngle);
-            ctx.closePath();
-            ctx.fill();
-            
-            ctx.strokeStyle = 'rgba(59, 130, 246, 0.4)';
-            ctx.lineWidth = 1.5;
-            ctx.stroke();
-        }
-
-        function drawSecurityView() {
-            ctx.fillStyle = '#111116';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-            const gridW = canvas.width / 2;
-            const gridH = canvas.height / 2;
-            const padd = 4;
-
-            gameConfig.cameras.forEach((cam, index) => {
-                let col = index % 2;
-                let row = Math.floor(index / 2);
-                let w = gridW - padd * 2;
-                let h = gridH - padd * 2;
-                let pos = { x: col * gridW + padd, y: row * gridH + padd };
-
+            } else {
+                // Normale Gameplay-Weltansicht rendern
                 ctx.save();
-                ctx.beginPath();
-                ctx.rect(pos.x, pos.y, w, h);
-                ctx.clip();
+                ctx.translate(-camera.x, -camera.y);
 
-                ctx.fillStyle = '#1c1c24';
-                ctx.fillRect(pos.x, pos.y, w, h);
-
-                ctx.save();
-                ctx.translate(pos.x + w / 2 - cam.x, pos.y + h / 2 - cam.y);
-
+                // Karte zeichnen
                 if (textures.map && textures.map.complete) {
                     ctx.drawImage(textures.map, 0, 0, mapWidth, mapHeight);
                 }
 
-                drawCameraVisionSquare(cam);
+                // Vents (Lüftungsschlitze) zeichnen
+                vents.forEach(vent => {
+                    ctx.fillStyle = 'rgba(50, 50, 50, 0.8)';
+                    ctx.strokeStyle = '#a855f7';
+                    ctx.lineWidth = 3;
+                    ctx.beginPath();
+                    ctx.arc(vent.x, vent.y, vent.radius, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.stroke();
+                    
+                    if (debugMode) {
+                        ctx.fillStyle = '#fff';
+                        ctx.font = '10px monospace';
+                        ctx.fillText(`ID:${vent.id}`, vent.x - 12, vent.y + 4);
+                    }
+                });
 
-                if (!isVenting && isPointInVision(player.x, player.y, cam)) {
+                // Security Screen Hitbox rendern
+                if (debugMode) {
+                    ctx.fillStyle = 'rgba(59, 130, 246, 0.3)';
+                    ctx.beginPath();
+                    ctx.arc(gameConfig.securityScreen.cx, gameConfig.securityScreen.cy, gameConfig.securityScreen.radius, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+
+                // Kameras Sichtkegel rendern
+                gameConfig.cameras.forEach(cam => {
+                    drawCameraVisionSquare(cam);
+                    ctx.fillStyle = '#ef4444';
+                    ctx.beginPath();
+                    ctx.arc(cam.x, cam.y, 6, 0, Math.PI * 2);
+                    ctx.fill();
+                });
+
+                // Runde Tische Kollisionskreise rendern
+                if (debugMode) {
+                    finalTables.forEach(table => {
+                        ctx.fillStyle = 'rgba(234, 179, 8, 0.2)';
+                        ctx.strokeStyle = '#eab308';
+                        ctx.lineWidth = 1.5;
+                        ctx.beginPath();
+                        ctx.arc(table.cx, table.cy, table.radius, 0, Math.PI * 2);
+                        ctx.fill();
+                        ctx.stroke();
+                    });
+                }
+
+                // Wand-LinienSegmente im Debug-Mode rendern
+                if (debugMode) {
+                    ctx.strokeStyle = 'rgba(239, 68, 68, 0.7)';
+                    ctx.lineWidth = wallThickness;
+                    ctx.lineCap = 'round';
+                    wallLines.forEach(line => {
+                        ctx.beginPath();
+                        ctx.moveTo(line.x1, line.y1);
+                        ctx.lineTo(line.x2, line.y2);
+                        ctx.stroke();
+                    });
+                }
+
+                // Spieler-Figur zeichnen (wenn nicht im Vent versteckt)
+                if (!isVenting) {
                     ctx.save();
                     ctx.translate(player.x, player.y);
-                    if (!player.facingRight) ctx.scale(-1, 1);
+                    
+                    if (debugMode) {
+                        ctx.fillStyle = 'rgba(16, 185, 129, 0.4)';
+                        ctx.beginPath();
+                        ctx.arc(0, 0, player.radius, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+
+                    if (!player.facingRight) {
+                        ctx.scale(-1, 1);
+                    }
+
                     if (textures.player && textures.player.complete) {
-                        ctx.drawImage(textures.player, -player.width / 2, -player.height / 2, player.width, player.height);
+                        ctx.drawImage(
+                            textures.player,
+                            -player.width / 2,
+                            -player.height / 2,
+                            player.width,
+                            player.height
+                        );
+                    } else {
+                        ctx.fillStyle = '#ef4444';
+                        ctx.fillRect(-player.width / 2, -player.height / 2, player.width, player.height);
                     }
                     ctx.restore();
                 }
 
                 ctx.restore();
-
-                ctx.strokeStyle = '#3b82f6';
-                ctx.lineWidth = 3;
-                ctx.strokeRect(pos.x, pos.y, w, h);
-
-                ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
-                ctx.fillRect(pos.x + 10, pos.y + 10, 185, 30);
-                ctx.fillStyle = '#00ffcc';
-                ctx.font = 'bold 11px monospace';
-                ctx.fillText(`CAM: ${cam.id}`, pos.x + 15, pos.y + 28);
-                ctx.restore();
-            });
-
-            ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-            ctx.fillRect(canvas.width / 2 - 150, canvas.height - 50, 300, 40);
-            ctx.fillStyle = '#ef4444';
-            ctx.font = 'bold 14px monospace';
-            ctx.textAlign = 'center';
-            ctx.fillText("LIVE SECURITY MONITOR", canvas.width / 2, canvas.height - 25);
-            ctx.textAlign = 'left';
-        }
-
-        function drawGame() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-            if (isViewingSecurity) {
-                drawSecurityView();
-                return;
             }
 
-            let camX = canvas.width / 2 - (isVenting ? currentVentNode.cx : player.x);
-            let camY = canvas.height / 2 - (isVenting ? currentVentNode.cy : player.y);
-
-            ctx.save();
-            ctx.translate(camX, camY);
-
-            if (textures.map && textures.map.complete) {
-                ctx.drawImage(textures.map, 0, 0, mapWidth, mapHeight);
-            } else {
-                ctx.fillStyle = '#222';
-                ctx.fillRect(0, 0, mapWidth, mapHeight);
-            }
-
-            if (debugMode) {
-                ctx.strokeStyle = 'rgba(239, 68, 68, 0.6)';
-                ctx.lineWidth = 2;
-                wallLines.forEach(line => {
-                    ctx.beginPath();
-                    ctx.moveTo(line.x1, line.y1);
-                    ctx.lineTo(line.x2, line.y2);
-                    ctx.stroke();
-                });
-
-                ctx.fillStyle = 'rgba(239, 68, 68, 0.2)';
-                ctx.strokeStyle = 'rgba(239, 68, 68, 0.5)';
-                finalTables.forEach(t => {
-                    ctx.beginPath();
-                    ctx.arc(t.cx, t.cy, t.radius, 0, Math.PI * 2);
-                    ctx.fill();
-                    ctx.stroke();
-                });
-
-                const sec = gameConfig.securityScreen;
-                ctx.fillStyle = 'rgba(59, 130, 246, 0.3)';
-                ctx.beginPath();
-                ctx.arc(sec.cx, sec.cy, sec.radius, 0, Math.PI * 2);
-                ctx.fill();
-            }
-
-            vents.forEach(v => {
-                ctx.fillStyle = 'rgba(168, 85, 247, 0.4)';
-                ctx.strokeStyle = '#a855f7';
-                ctx.lineWidth = 2;
-                ctx.beginPath();
-                ctx.arc(v.cx, v.cy, v.radius, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.stroke();
-
-                ctx.fillStyle = '#fff';
-                ctx.font = '10px monospace';
-                ctx.textAlign = 'center';
-                ctx.fillText(`V:${v.id}`, v.cx, v.cy + 3);
-                ctx.textAlign = 'left';
-            });
-
-            if (isVenting && currentVentNode) {
-                activeVentButtons.forEach(v => {
-                    ctx.fillStyle = 'rgba(255, 255, 0, 0.6)';
-                    ctx.strokeStyle = '#ffff00';
-                    ctx.lineWidth = 2;
-                    ctx.beginPath();
-                    ctx.arc(v.cx, v.cy, 12, 0, Math.PI * 2);
-                    ctx.fill();
-                    ctx.stroke();
-
-                    ctx.beginPath();
-                    ctx.strokeStyle = '#ffff00';
-                    ctx.lineWidth = 1.5;
-                    ctx.setLineDash([4, 4]);
-                    ctx.moveTo(currentVentNode.cx, currentVentNode.cy);
-                    ctx.lineTo(v.cx, v.cy);
-                    ctx.stroke();
-                    ctx.setLineDash([]);
-                });
-            }
-
-            if (!isVenting && gameActive) {
-                ctx.save();
-                ctx.translate(player.x, player.y);
-                if (!player.facingRight) {
-                    ctx.scale(-1, 1);
-                }
-                if (textures.player && textures.player.complete) {
-                    ctx.drawImage(textures.player, -player.width / 2, -player.height / 2, player.width, player.height);
-                } else {
-                    ctx.fillStyle = '#ef4444';
-                    ctx.beginPath();
-                    ctx.arc(0, 0, player.radius, 0, Math.PI * 2);
-                    ctx.fill();
-                }
-                ctx.restore();
-            }
-
-            ctx.restore();
-        }
-
-        function gameLoop() {
-            if (!isVenting) {
-                updatePlayerPosition();
-            }
-            if (gameActive) {
-                checkInteractions();
-            }
-            drawGame();
+            // Schleife fortsetzen
             requestAnimationFrame(gameLoop);
         }
-
-        requestAnimationFrame(gameLoop);
     </script>
 </body>
 </html>
