@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Among Us Clone - Mobile Debug Edition</title>
+    <title>Among Us Clone - Mobile Edition</title>
     <style>
         * {
             box-sizing: border-box;
@@ -58,83 +58,79 @@
             z-index: 10;
             display: block;
         }
-        #debug-ui {
+        #engineer-btn {
             position: absolute;
-            top: 10px;
-            left: 10px;
-            background: rgba(0, 0, 0, 0.9);
-            color: #00ffcc;
-            padding: 12px;
-            border-radius: 8px;
-            font-family: monospace;
-            font-size: 11px;
-            z-index: 100;
-            width: 90%;
-            max-width: 340px;
-            max-height: 85vh;
-            overflow-y: auto;
-            display: none;
-            border: 1px solid #00ffcc;
-            -webkit-overflow-scrolling: touch;
+            bottom: 155px;
+            right: 50px;
+            width: 90px;
+            height: 90px;
+            background-size: contain;
+            background-position: center;
+            background-repeat: no-repeat;
+            touch-action: none;
+            z-index: 10;
+            display: none; /* Wird nur für Engineers sichtbar */
         }
-        .debug-section {
-            border-bottom: 1px solid #333;
-            padding: 6px 0;
-            margin-bottom: 6px;
-        }
-        .debug-section label {
-            display: block;
-            margin: 4px 0;
-            user-select: text;
-            -webkit-user-select: text;
-        }
-        .cam-edit-row {
-            display: flex;
-            gap: 4px;
-            margin-bottom: 4px;
-        }
-        .cam-edit-row input {
-            background: #222;
-            color: #fff;
-            border: 1px solid #444;
-            padding: 2px 4px;
-            font-size: 11px;
-            border-radius: 2px;
-        }
-        .cam-name { width: 55%; }
-        .cam-range { width: 45%; }
-        #debug-json {
+        /* Rollenauswahl-Overlay */
+        #role-selection-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
             width: 100%;
-            height: 70px;
-            background: #111;
+            height: 100%;
+            background: rgba(5, 5, 8, 0.95);
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
             color: #fff;
-            border: 1px solid #333;
-            margin-top: 5px;
-            font-size: 10px;
-            white-space: pre;
-            overflow-x: scroll;
-            user-select: text;
-            -webkit-user-select: text;
         }
-        #debug-toggle-btn {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            background: rgba(255,0,0,0.6);
-            color: white;
-            border: none;
-            padding: 6px 12px;
+        #role-selection-overlay h1 {
+            font-size: 28px;
+            margin-bottom: 30px;
+            letter-spacing: 2px;
             font-family: monospace;
-            z-index: 100;
-            border-radius: 4px;
         }
-        input[type="radio"] {
-            margin-right: 5px;
-            accent-color: #00ffcc;
+        .role-buttons {
+            display: flex;
+            gap: 20px;
+        }
+        .role-btn {
+            background: #1e1e24;
+            color: #fff;
+            border: 2px solid #3b82f6;
+            padding: 15px 30px;
+            font-size: 18px;
+            font-weight: bold;
+            font-family: monospace;
+            border-radius: 8px;
+            cursor: pointer;
+            min-width: 160px;
+            text-align: center;
+        }
+        .role-btn:active {
+            background: #3b82f6;
+            color: #000;
+        }
+        #btn-engineer {
+            border-color: #a855f7;
+        }
+        #btn-engineer:active {
+            background: #a855f7;
+            color: #000;
         }
     </style>
 </head>
 <body>
+
+    <div id="role-selection-overlay">
+        <h1>WÄHLE DEINE ROLLE</h1>
+        <div class="role-buttons">
+            <button class="role-btn" id="btn-crewmate" onclick="selectRole('crewmate')">CREWMATE</button>
+            <button class="role-btn" id="btn-engineer" onclick="selectRole('engineer')">ENGINEER</button>
+        </div>
+    </div>
 
     <canvas id="gameCanvas"></canvas>
     
@@ -143,32 +139,7 @@
     </div>
     
     <div id="action-btn"></div>
-
-    <button id="debug-toggle-btn" onclick="toggleDebugMode()">Debug (Ctrl+M)</button>
-
-    <div id="debug-ui">
-        <div class="debug-section"><strong>DEBUG MODE (MOBILE READY)</strong></div>
-        
-        <div class="debug-section">
-            <div><strong>Wähle Element zum Platzieren:</strong></div>
-            <label><input type="radio" name="placement-target" value="cam-0" checked> Cam 1 (Medbay-Cafeteria)</label>
-            <label><input type="radio" name="placement-target" value="cam-1"> Cam 2 (Security)</label>
-            <label><input type="radio" name="placement-target" value="cam-2"> Cam 3 (Admin)</label>
-            <label><input type="radio" name="placement-target" value="cam-3"> Cam 4 (Navigation Hallway)</label>
-            <label><input type="radio" name="placement-target" value="screen"> 🖥️ Security Terminal</label>
-            <small style="color:#aaa;">Danach einfach auf die Map tippen.</small>
-        </div>
-
-        <div class="debug-section">
-            <div><strong>Cams anpassen (Name | Range):</strong></div>
-            <div id="cam-inputs-container"></div>
-        </div>
-
-        <div class="debug-section">
-            <div>Current JSON Data:</div>
-            <textarea id="debug-json" readonly onclick="this.select()"></textarea>
-        </div>
-    </div>
+    <div id="engineer-btn"></div>
 
     <script>
         const canvas = document.getElementById('gameCanvas');
@@ -178,7 +149,9 @@
         const mapHeight = 1080;
         const wallThickness = 15;
 
-        // Aktualisierte Konfiguration mit deinen exakten Daten
+        let playerRole = null; // 'crewmate' oder 'engineer'
+        let gameActive = false;
+
         let gameConfig = {
             "securityScreen": {
                 "cx": 587,
@@ -235,7 +208,7 @@
             { "x1": 913,  "y1": 516, "x2": 705,  "y2": 523 }, { "x1": 707,  "y1": 525, "x2": 663,  "y2": 483 },
             { "x1": 668,  "y1": 486, "x2": 662,  "y2": 300 }, { "x1": 663,  "y1": 293, "x2": 714,  "y2": 291 },
             { "x1": 717,  "y1": 290, "x2": 716,  "y2": 276 }, { "x1": 716,  "y1": 272, "x2": 529,  "y2": 277 },
-            { "x1": 535,  "y1": 274, "x2": 522,  "y2": 344 }, { "x1": 521,  "y1": 350, "x2": 473,  "y2": 353 },
+            { "x1": 535,  "y1": 274, "x2": 522,  "y2": 164 }, { "x1": 521,  "y1": 350, "x2": 473,  "y2": 353 },
             { "x1": 471,  "y1": 356, "x2": 469,  "y2": 477 }, { "x1": 472,  "y1": 479, "x2": 522,  "y2": 476 },
             { "x1": 523,  "y1": 480, "x2": 523,  "y2": 406 }, { "x1": 524,  "y1": 436, "x2": 566,  "y2": 391 },
             { "x1": 566,  "y1": 390, "x2": 601,  "y2": 391 }, { "x1": 608,  "y1": 395, "x2": 634,  "y2": 419 },
@@ -312,7 +285,7 @@
             { "x1": 1457, "y1": 264, "x2": 1333, "y2": 273 }, { "x1": 1438, "y1": 464, "x2": 1435, "y2": 453 },
             { "x1": 1433, "y1": 449, "x2": 1566, "y2": 448 }, { "x1": 1568, "y1": 449, "x2": 1572, "y2": 529 },
             { "x1": 1569, "y1": 528, "x2": 1480, "y2": 528 }, { "x1": 1477, "y1": 532, "x2": 1471, "y2": 673 },
-            { "x1": 1536, "y1": 570, "x2": 1630, "y2": 565 }, { "x1": 1629, "y1": 572, "x2": 1627, "y2": 512 },
+            { "x1": 536,  "y1": 570, "x2": 1630, "y2": 565 }, { "x1": 1629, "y1": 572, "x2": 1627, "y2": 512 },
             { "x1": 1627, "y1": 510, "x2": 1747, "y2": 507 }, { "x1": 1744, "y1": 510, "x2": 1747, "y2": 554 },
             { "x1": 1745, "y1": 558, "x2": 1826, "y2": 562 }, { "x1": 1891, "y1": 516, "x2": 1834, "y2": 561 },
             { "x1": 1893, "y1": 514, "x2": 1894, "y2": 416 }, { "x1": 1896, "y1": 435, "x2": 1829, "y2": 373 },
@@ -339,7 +312,8 @@
             map: 'assets/Map.png',
             player: 'assets/IMG_0964.webp',
             useBtn: 'assets/use.webp',
-            useSecBtn: 'assets/use_sec.webp'
+            useSecBtn: 'assets/use_sec.webp',
+            engBtn: 'assets/eng.webp'
         };
         
         let loadedImages = 0;
@@ -349,7 +323,10 @@
             textures[key].src = sources[key];
             textures[key].onload = () => {
                 loadedImages++;
-                if (loadedImages === totalImages) updateButtonTexture(false);
+                if (loadedImages === totalImages) {
+                    updateButtonTexture(false);
+                    document.getElementById('engineer-btn').style.backgroundImage = `url('${sources.engBtn}')`;
+                }
             };
         }
 
@@ -357,12 +334,12 @@
         let camera = { x: 0, y: 0 };
         let isViewingSecurity = false; 
         let nearSecurity = false;      
-        let debugMode = false;
 
         const keys = {};
         const joystickZone = document.getElementById('joystick-zone');
         const joystickKnob = document.getElementById('joystick-knob');
         const actionBtn = document.getElementById('action-btn');
+        const engineerBtn = document.getElementById('engineer-btn');
         let joystickActive = false;
         let joystickStartX = 0, joystickStartY = 0;
 
@@ -378,92 +355,25 @@
         }
 
         window.addEventListener('keydown', e => {
+            if (!gameActive) return;
             keys[e.key.toLowerCase()] = true;
-            if (e.ctrlKey && e.key.toLowerCase() === 'm') {
-                e.preventDefault();
-                toggleDebugMode();
-            }
         });
         window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
 
-        function toggleDebugMode() {
-            debugMode = !debugMode;
-            document.getElementById('debug-ui').style.display = debugMode ? 'block' : 'none';
-            document.getElementById('debug-toggle-btn').style.background = debugMode ? '#00ffcc' : 'rgba(255,0,0,0.6)';
-            document.getElementById('debug-toggle-btn').style.color = debugMode ? '#000' : '#fff';
-            if(debugMode) {
-                buildCamInputFields();
-                syncDebugJSON();
-            }
-        }
-
-        function buildCamInputFields() {
-            const container = document.getElementById('cam-inputs-container');
-            container.innerHTML = '';
-            gameConfig.cameras.forEach((cam, idx) => {
-                const row = document.createElement('div');
-                row.className = 'cam-edit-row';
-                row.innerHTML = `
-                    <span style="width:20px; color:#aaa;">${idx+1}:</span>
-                    <input type="text" class="cam-name" value="${cam.id}" placeholder="Name" data-idx="${idx}">
-                    <input type="number" class="cam-range" value="${cam.range}" placeholder="Range" data-idx="${idx}">
-                `;
-                container.appendChild(row);
-            });
-
-            container.querySelectorAll('.cam-name').forEach(input => {
-                input.addEventListener('input', e => {
-                    let idx = parseInt(e.target.dataset.idx);
-                    gameConfig.cameras[idx].id = e.target.value;
-                    syncDebugJSON();
-                });
-            });
-            container.querySelectorAll('.cam-range').forEach(input => {
-                input.addEventListener('input', e => {
-                    let idx = parseInt(e.target.dataset.idx);
-                    let val = parseInt(e.target.value) || 0;
-                    gameConfig.cameras[idx].range = val;
-                    syncDebugJSON();
-                });
-            });
-        }
-
-        function syncDebugJSON() {
-            document.getElementById('debug-json').value = JSON.stringify(gameConfig, null, 4);
-        }
-
-        function handleMapClick(clientX, clientY) {
-            if (!debugMode) return;
+        // Rollen-Auswahl-Logik
+        function selectRole(role) {
+            playerRole = role;
+            document.getElementById('role-selection-overlay').style.display = 'none';
             
-            let rect = canvas.getBoundingClientRect();
-            let clickX = clientX - rect.left + camera.x;
-            let clickY = clientY - rect.top + camera.y;
-
-            const activeTarget = document.querySelector('input[name="placement-target"]:checked').value;
-
-            if (activeTarget === 'screen') {
-                gameConfig.securityScreen.cx = Math.round(clickX);
-                gameConfig.securityScreen.cy = Math.round(clickY);
-            } else if (activeTarget.startsWith('cam-')) {
-                let idx = parseInt(activeTarget.split('-')[1]);
-                gameConfig.cameras[idx].x = Math.round(clickX);
-                gameConfig.cameras[idx].y = Math.round(clickY);
+            if (playerRole === 'engineer') {
+                engineerBtn.style.display = 'block';
             }
-            syncDebugJSON();
+            
+            gameActive = true;
         }
-
-        canvas.addEventListener('click', e => {
-            if(debugMode) handleMapClick(e.clientX, e.clientY);
-        });
-        canvas.addEventListener('touchstart', e => {
-            if(debugMode && e.touches.length > 0) {
-                e.preventDefault(); 
-                handleMapClick(e.touches[0].clientX, e.touches[0].clientY);
-            }
-        }, { passive: false });
 
         joystickZone.addEventListener('touchstart', e => {
-            if (isViewingSecurity || debugMode) return;
+            if (!gameActive || isViewingSecurity) return;
             joystickActive = true;
             const rect = joystickZone.getBoundingClientRect();
             joystickStartX = rect.left + rect.width / 2;
@@ -497,11 +407,24 @@
 
         actionBtn.addEventListener('touchstart', (e) => {
             e.preventDefault();
+            if (!gameActive) return;
             if (nearSecurity) {
                 isViewingSecurity = !isViewingSecurity;
                 joystickZone.style.display = isViewingSecurity ? 'none' : 'flex';
+                if (playerRole === 'engineer') {
+                    engineerBtn.style.display = isViewingSecurity ? 'none' : 'block';
+                }
                 if (isViewingSecurity) endJoystick();
             }
+        });
+
+        // Event-Listener für den Engineer Button (bereit für deine Logik)
+        engineerBtn.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            if (!gameActive || isViewingSecurity) return;
+            
+            // Hier kommt später dein Code für Vent-Interaktionen oder ähnliches rein.
+            console.log("Engineer Button gedrückt!");
         });
 
         function resolveLineCollision(p, line) {
@@ -529,10 +452,13 @@
         }
 
         function update() {
+            if (!gameActive) return;
+
             if (isViewingSecurity) {
                 if (keys['e'] || keys['escape']) {
                     isViewingSecurity = false;
                     joystickZone.style.display = 'flex';
+                    if (playerRole === 'engineer') engineerBtn.style.display = 'block';
                     keys['e'] = false; keys['escape'] = false;
                 }
                 return;
@@ -569,6 +495,9 @@
             if (keys['e'] && nearSecurity) {
                 isViewingSecurity = !isViewingSecurity;
                 joystickZone.style.display = isViewingSecurity ? 'none' : 'flex';
+                if (playerRole === 'engineer') {
+                    engineerBtn.style.display = isViewingSecurity ? 'none' : 'block';
+                }
                 keys['e'] = false;
             }
 
@@ -578,6 +507,7 @@
             camera.y = Math.max(0, Math.min(mapHeight - canvas.height, camera.y));
         }
 
+        // Sichtkegelzeichnung (Wird jetzt exklusiv im Security Monitor verwendet)
         function drawCameraVisionSquare(cam) {
             let leftAngle = cam.angle - cam.fov / 2;
             let rightAngle = cam.angle + cam.fov / 2;
@@ -601,18 +531,6 @@
 
             ctx.fillStyle = '#a855f7';
             ctx.beginPath(); ctx.arc(cam.x, cam.y, 6, 0, Math.PI * 2); ctx.fill();
-            
-            if (debugMode) {
-                const activeTarget = document.querySelector('input[name="placement-target"]:checked')?.value;
-                if (activeTarget && activeTarget.startsWith('cam-')) {
-                    let activeIdx = parseInt(activeTarget.split('-')[1]);
-                    if (gameConfig.cameras[activeIdx] === cam) {
-                        ctx.strokeStyle = '#fff';
-                        ctx.lineWidth = 2;
-                        ctx.strokeRect(cam.x - 10, cam.y - 10, 20, 20);
-                    }
-                }
-            }
         }
 
         function isPointInVision(px, py, cam) {
@@ -675,6 +593,8 @@
         }
 
         function draw() {
+            if (!gameActive) return;
+
             if (isViewingSecurity) {
                 drawSecurityMonitorSystem();
                 return;
@@ -684,21 +604,16 @@
             ctx.save();
             ctx.translate(-camera.x, -camera.y);
 
+            // Hintergrund-Map zeichnen
             if (textures.map && textures.map.complete) {
                 ctx.drawImage(textures.map, 0, 0, mapWidth, mapHeight);
             } else {
                 ctx.fillStyle = '#1e1e24'; ctx.fillRect(0, 0, mapWidth, mapHeight);
             }
 
-            gameConfig.cameras.forEach(cam => drawCameraVisionSquare(cam));
+            // INFO: Die Sichtkegel (Sicherheitssystem) und Terminal-Kreise wurden hier entfernt, damit alle Hitboxen unsichtbar sind.
 
-            ctx.fillStyle = nearSecurity ? 'rgba(0, 255, 200, 0.4)' : 'rgba(59, 130, 246, 0.4)';
-            ctx.strokeStyle = nearSecurity ? '#00ffcc' : '#3b82f6';
-            ctx.lineWidth = 3;
-            ctx.beginPath();
-            ctx.arc(gameConfig.securityScreen.cx, gameConfig.securityScreen.cy, gameConfig.securityScreen.radius, 0, Math.PI * 2);
-            ctx.fill(); ctx.stroke();
-
+            // Spieler zeichnen
             ctx.save();
             ctx.translate(player.x, player.y);
             if (!player.facingRight) ctx.scale(-1, 1);
