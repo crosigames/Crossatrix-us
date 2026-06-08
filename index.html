@@ -69,10 +69,12 @@
             background-repeat: no-repeat;
             touch-action: none;
             z-index: 10;
-            display: none; /* Wird nur für Engineers sichtbar */
+            display: none;
+            opacity: 0.4; /* Standardmäßig ausgeblendet/semi-transparent */
+            transition: opacity 0.2s;
         }
-        /* Rollenauswahl-Overlay */
-        #role-selection-overlay {
+        /* Overlays */
+        #role-selection-overlay, #debug-overlay {
             position: absolute;
             top: 0;
             left: 0;
@@ -86,50 +88,72 @@
             justify-content: center;
             color: #fff;
         }
-        #role-selection-overlay h1 {
-            font-size: 28px;
-            margin-bottom: 30px;
+        #debug-overlay {
+            background: rgba(11, 11, 14, 0.9);
+            display: none;
+        }
+        .window-title {
+            font-size: 24px;
+            margin-bottom: 20px;
             letter-spacing: 2px;
             font-family: monospace;
         }
-        .role-buttons {
+        .role-buttons, .debug-controls {
             display: flex;
             gap: 20px;
+            flex-direction: row;
+            align-items: center;
         }
-        .role-btn {
+        .panel-btn {
             background: #1e1e24;
             color: #fff;
             border: 2px solid #3b82f6;
-            padding: 15px 30px;
-            font-size: 18px;
+            padding: 12px 24px;
+            font-size: 16px;
             font-weight: bold;
             font-family: monospace;
             border-radius: 8px;
             cursor: pointer;
-            min-width: 160px;
-            text-align: center;
         }
-        .role-btn:active {
+        .panel-btn:active {
             background: #3b82f6;
             color: #000;
         }
-        #btn-engineer {
-            border-color: #a855f7;
-        }
-        #btn-engineer:active {
-            background: #a855f7;
-            color: #000;
+        #btn-engineer { border-color: #a855f7; }
+        #btn-engineer:active { background: #a855f7; color: #000; }
+        
+        .debug-input {
+            background: #16161a;
+            border: 2px solid #4b5563;
+            color: #fff;
+            padding: 10px;
+            font-size: 16px;
+            border-radius: 6px;
+            width: 100px;
+            text-align: center;
+            font-family: monospace;
         }
     </style>
 </head>
 <body>
 
     <div id="role-selection-overlay">
-        <h1>WÄHLE DEINE ROLLE</h1>
+        <h1 class="window-title">WÄHLE DEINE ROLLE</h1>
         <div class="role-buttons">
-            <button class="role-btn" id="btn-crewmate" onclick="selectRole('crewmate')">CREWMATE</button>
-            <button class="role-btn" id="btn-engineer" onclick="selectRole('engineer')">ENGINEER</button>
+            <button class="panel-btn" id="btn-crewmate" onclick="selectRole('crewmate')">CREWMATE</button>
+            <button class="panel-btn" id="btn-engineer" onclick="selectRole('engineer')">ENGINEER</button>
         </div>
+    </div>
+
+    <div id="debug-overlay">
+        <h1 class="window-title">VENT DESIGNER MODE</h1>
+        <div class="debug-controls">
+            <input type="text" id="vent-id" class="debug-input" placeholder="ID (z.B. 1)" value="1">
+            <input type="number" id="vent-size" class="debug-input" placeholder="Radius" value="25">
+            <button class="panel-btn" onclick="startVentPlacement()">Vent platzieren</button>
+            <button class="panel-btn" style="border-color:#ef4444" onclick="closeDebug()">Schließen</button>
+        </div>
+        <p style="margin-top:15px; font-family:monospace; font-size:12px; color:#9ca3af;">Klicke nach dem Setup auf den Bildschirm, um das Vent zu setzen.</p>
     </div>
 
     <canvas id="gameCanvas"></canvas>
@@ -149,49 +173,27 @@
         const mapHeight = 1080;
         const wallThickness = 15;
 
-        let playerRole = null; // 'crewmate' oder 'engineer'
+        let playerRole = null; 
         let gameActive = false;
+        let debugMode = false;
+        let placementActive = false;
+
+        // Vent-Datenstrukturen
+        let vents = []; 
+        let currentVentIdInput = "1";
+        let currentVentSizeInput = 25;
+        
+        let isVenting = false;
+        let currentVentNode = null;
+        let activeVentButtons = []; // Regionen für die Richtungspfeile im Vent
 
         let gameConfig = {
-            "securityScreen": {
-                "cx": 587,
-                "cy": 376,
-                "radius": 35,
-                "interactRange": 60
-            },
+            "securityScreen": { "cx": 587, "cy": 376, "radius": 35, "interactRange": 60 },
             "cameras": [
-                {
-                    "id": "Medbay-Cafeteria Hallway",
-                    "x": 799,
-                    "y": 208,
-                    "angle": 1.57,
-                    "fov": 1.04,
-                    "range": 180
-                },
-                {
-                    "id": "Security ",
-                    "x": 479,
-                    "y": 470,
-                    "angle": 3.14,
-                    "fov": 1.04,
-                    "range": 160
-                },
-                {
-                    "id": "Admin",
-                    "x": 1138,
-                    "y": 527,
-                    "angle": 3.45,
-                    "fov": 1.57,
-                    "range": 170
-                },
-                {
-                    "id": "Navigation Hallway",
-                    "x": 1653,
-                    "y": 431,
-                    "angle": 0,
-                    "fov": 1.04,
-                    "range": 190
-                }
+                { "id": "Medbay-Cafeteria Hallway", "x": 799, "y": 208, "angle": 1.57, "fov": 1.04, "range": 180 },
+                { "id": "Security ", "x": 479, "y": 470, "angle": 3.14, "fov": 1.04, "range": 160 },
+                { "id": "Admin", "x": 1138, "y": 527, "angle": 3.45, "fov": 1.57, "range": 170 },
+                { "id": "Navigation Hallway", "x": 1653, "y": 431, "angle": 0, "fov": 1.04, "range": 190 }
             ]
         };
 
@@ -325,7 +327,7 @@
                 loadedImages++;
                 if (loadedImages === totalImages) {
                     updateButtonTexture(false);
-                    document.getElementById('engineer-btn').style.backgroundImage = `url('${sources.engBtn}')`;
+                    engineerBtn.style.backgroundImage = `url('${sources.engBtn}')`;
                 }
             };
         }
@@ -334,6 +336,7 @@
         let camera = { x: 0, y: 0 };
         let isViewingSecurity = false; 
         let nearSecurity = false;      
+        let nearVent = null;
 
         const keys = {};
         const joystickZone = document.getElementById('joystick-zone');
@@ -354,26 +357,99 @@
             actionBtn.style.backgroundImage = `url('${isSec ? sources.useSecBtn : sources.useBtn}')`;
         }
 
+        // Trigger für Debug-Menü über Tastatur ('m') oder Volume-Up-Simulation im Web
         window.addEventListener('keydown', e => {
             if (!gameActive) return;
+            if (e.key.toLowerCase() === 'm') {
+                openDebug();
+            }
             keys[e.key.toLowerCase()] = true;
         });
         window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
 
-        // Rollen-Auswahl-Logik
+        // Diskreter Listener für Mobile: Volume Up Keycode abfangen (wo möglich)
+        window.addEventListener('keydown', e => {
+            if (e.keyCode === 24) { // Volume Up Keycode auf vielen Android-Geräten im WebView Context
+                openDebug();
+            }
+        });
+
+        function openDebug() {
+            debugMode = true;
+            document.getElementById('debug-overlay').style.display = 'flex';
+        }
+
+        function closeDebug() {
+            debugMode = false;
+            placementActive = false;
+            document.getElementById('debug-overlay').style.display = 'none';
+        }
+
+        function startVentPlacement() {
+            currentVentIdInput = document.getElementById('vent-id').value || "1";
+            currentVentSizeInput = parseInt(document.getElementById('vent-size').value) || 25;
+            placementActive = true;
+            document.getElementById('debug-overlay').style.display = 'none';
+        }
+
         function selectRole(role) {
             playerRole = role;
             document.getElementById('role-selection-overlay').style.display = 'none';
-            
             if (playerRole === 'engineer') {
                 engineerBtn.style.display = 'block';
             }
-            
             gameActive = true;
         }
 
+        // Touch/Click Handling auf dem Canvas (Sowohl für Platzierung als auch Vent-Navi)
+        canvas.addEventListener('touchstart', handleCanvasClick);
+        canvas.addEventListener('mousedown', (e) => {
+            if ('ontouchstart' in window) return;
+            handleCanvasClick(e);
+        });
+
+        function handleCanvasClick(e) {
+            if (!gameActive) return;
+            
+            let clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            let clientY = e.touches ? e.touches[0].clientY : e.clientY;
+
+            // 1. Klick im Vent-Modus prüfen (Klick auf Mini-Navi-Buttons)
+            if (isVenting) {
+                for (let btn of activeVentButtons) {
+                    let dx = clientX - btn.screenX;
+                    let dy = clientY - btn.screenY;
+                    if (Math.sqrt(dx*dx + dy*dy) <= btn.radius) {
+                        // Zu Partner-Vent teleportieren
+                        currentVentNode = btn.targetVent;
+                        player.x = currentVentNode.x;
+                        player.y = currentVentNode.y;
+                        recalculateVentButtons();
+                        return;
+                    }
+                }
+            }
+
+            // 2. Klick im Platzierungsmodus des Debuggers
+            if (debugMode && placementActive) {
+                let mapX = clientX + camera.x;
+                let mapY = clientY + camera.y;
+
+                vents.push({
+                    id: currentVentIdInput,
+                    x: mapX,
+                    y: mapY,
+                    radius: currentVentSizeInput
+                });
+
+                placementActive = false;
+                debugMode = false;
+                console.log(`Vent platziert bei X: ${mapX}, Y: ${mapY} mit ID: ${currentVentIdInput}`);
+            }
+        }
+
         joystickZone.addEventListener('touchstart', e => {
-            if (!gameActive || isViewingSecurity) return;
+            if (!gameActive || isViewingSecurity || isVenting) return;
             joystickActive = true;
             const rect = joystickZone.getBoundingClientRect();
             joystickStartX = rect.left + rect.width / 2;
@@ -381,7 +457,7 @@
         });
 
         window.addEventListener('touchmove', e => {
-            if (!joystickActive || isViewingSecurity) return;
+            if (!joystickActive || isViewingSecurity || isVenting) return;
             const touch = e.touches[0];
             let dx = touch.clientX - joystickStartX;
             let dy = touch.clientY - joystickStartY;
@@ -407,7 +483,7 @@
 
         actionBtn.addEventListener('touchstart', (e) => {
             e.preventDefault();
-            if (!gameActive) return;
+            if (!gameActive || isVenting) return;
             if (nearSecurity) {
                 isViewingSecurity = !isViewingSecurity;
                 joystickZone.style.display = isViewingSecurity ? 'none' : 'flex';
@@ -418,14 +494,55 @@
             }
         });
 
-        // Event-Listener für den Engineer Button (bereit für deine Logik)
+        // Engineer Button Interaktion (Rein/Raus aus Vents)
         engineerBtn.addEventListener('touchstart', (e) => {
             e.preventDefault();
-            if (!gameActive || isViewingSecurity) return;
+            if (!gameActive || isViewingSecurity || playerRole !== 'engineer') return;
             
-            // Hier kommt später dein Code für Vent-Interaktionen oder ähnliches rein.
-            console.log("Engineer Button gedrückt!");
+            if (isVenting) {
+                // Aus Vent austreten
+                isVenting = false;
+                joystickZone.style.display = 'flex';
+                actionBtn.style.display = 'block';
+                currentVentNode = null;
+                activeVentButtons = [];
+            } else if (nearVent) {
+                // In Vent eintreten
+                isVenting = true;
+                currentVentNode = nearVent;
+                player.x = currentVentNode.x;
+                player.y = currentVentNode.y;
+                endJoystick();
+                joystickZone.style.display = 'none';
+                actionBtn.style.display = 'none';
+                recalculateVentButtons();
+            }
         });
+
+        // Berechnet die Positionen der Mini-Use-Buttons um den Vent herum basierend auf verbundenen Partnern
+        function recalculateVentButtons() {
+            activeVentButtons = [];
+            if (!currentVentNode) return;
+
+            // Finde alle Vents mit der gleichen ID (außer sich selbst)
+            let partners = vents.filter(v => v.id === currentVentNode.id && v !== currentVentNode);
+            
+            partners.forEach(partner => {
+                let dx = partner.x - currentVentNode.x;
+                let dy = partner.y - currentVentNode.y;
+                let angle = Math.atan2(dy, dx);
+
+                // Platziere den Mini-Button im Abstand von 45 Pixeln in Richtung des Partners
+                let buttonDist = 45; 
+                activeVentButtons.push({
+                    relX: Math.cos(angle) * buttonDist,
+                    relY: Math.sin(angle) * buttonDist,
+                    radius: 16,
+                    targetVent: partner,
+                    angle: angle
+                });
+            });
+        }
 
         function resolveLineCollision(p, line) {
             let dx = line.x2 - line.x1; let dy = line.y2 - line.y1;
@@ -464,132 +581,69 @@
                 return;
             }
 
-            if (keys['w'] || keys['arrowup']) player.vy = -player.speed;
-            else if (keys['s'] || keys['arrowdown']) player.vy = player.speed;
-            else if (!joystickActive) player.vy = 0;
+            // Normale Fortbewegung blockieren, wenn man im Vent sitzt
+            if (!isVenting) {
+                if (keys['w'] || keys['arrowup']) player.vy = -player.speed;
+                else if (keys['s'] || keys['arrowdown']) player.vy = player.speed;
+                else if (!joystickActive) player.vy = 0;
 
-            if (keys['a'] || keys['arrowleft']) { player.vx = -player.speed; player.facingRight = false; }
-            else if (keys['d'] || keys['arrowright']) { player.vx = player.speed; player.facingRight = true; }
-            else if (!joystickActive) player.vx = 0;
+                if (keys['a'] || keys['arrowleft']) { player.vx = -player.speed; player.facingRight = false; }
+                else if (keys['d'] || keys['arrowright']) { player.vx = player.speed; player.facingRight = true; }
+                else if (!joystickActive) player.vx = 0;
 
-            if (joystickActive && player.vx !== 0) player.facingRight = player.vx > 0;
+                if (joystickActive && player.vx !== 0) player.facingRight = player.vx > 0;
 
-            player.x += player.vx;
-            player.y += player.vy;
+                player.x += player.vx;
+                player.y += player.vy;
 
-            for (let line of wallLines) resolveLineCollision(player, line);
-            for (let table of finalTables) resolveCircleCollision(player, table);
-            resolveCircleCollision(player, { cx: gameConfig.securityScreen.cx, cy: gameConfig.securityScreen.cy, radius: gameConfig.securityScreen.radius });
+                for (let line of wallLines) resolveLineCollision(player, line);
+                for (let table of finalTables) resolveCircleCollision(player, table);
+                resolveCircleCollision(player, { cx: gameConfig.securityScreen.cx, cy: gameConfig.securityScreen.cy, radius: gameConfig.securityScreen.radius });
 
-            if (player.x < 0) player.x = 0; if (player.y < 0) player.y = 0;
-            if (player.x > mapWidth) player.x = mapWidth; if (player.y > mapHeight) player.y = mapHeight;
+                if (player.x < 0) player.x = 0; if (player.y < 0) player.y = 0;
+                if (player.x > mapWidth) player.x = mapWidth; if (player.y > mapHeight) player.y = mapHeight;
+            }
 
+            // Security Proximity Check
             let distToSec = Math.sqrt((player.x - gameConfig.securityScreen.cx) ** 2 + (player.y - gameConfig.securityScreen.cy) ** 2);
-            let currentlyNear = distToSec <= (player.radius + gameConfig.securityScreen.interactRange);
-            
-            if (currentlyNear !== nearSecurity) {
-                nearSecurity = currentlyNear;
+            let currentlyNearSec = distToSec <= (player.radius + gameConfig.securityScreen.interactRange);
+            if (currentlyNearSec !== nearSecurity) {
+                nearSecurity = currentlyNearSec;
                 updateButtonTexture(nearSecurity);
             }
 
-            if (keys['e'] && nearSecurity) {
-                isViewingSecurity = !isViewingSecurity;
-                joystickZone.style.display = isViewingSecurity ? 'none' : 'flex';
-                if (playerRole === 'engineer') {
-                    engineerBtn.style.display = isViewingSecurity ? 'none' : 'block';
-                }
-                keys['e'] = false;
+            // Vent Proximity Check (Nur für Engineer relevant)
+            if (playerRole === 'engineer' && !isVenting) {
+                let closestVent = null;
+                let minDist = Infinity;
+                vents.forEach(v => {
+                    let d = Math.sqrt((player.x - v.x)**2 + (player.y - v.y)**2);
+                    if (d < v.radius + 20 && d < minDist) {
+                        minDist = d;
+                        closestVent = v;
+                    }
+                });
+                nearVent = closestVent;
+                engineerBtn.style.opacity = nearVent ? "1.0" : "0.4";
+            } else if (isVenting) {
+                engineerBtn.style.opacity = "1.0"; // Voll sichtbar, wenn bereits im Vent sitzend
+            } else {
+                engineerBtn.style.opacity = "0.4";
             }
 
+            // Kamera-Fokus berechnen
             camera.x = player.x - canvas.width / 2;
             camera.y = player.y - canvas.height / 2;
             camera.x = Math.max(0, Math.min(mapWidth - canvas.width, camera.x));
             camera.y = Math.max(0, Math.min(mapHeight - canvas.height, camera.y));
-        }
 
-        // Sichtkegelzeichnung (Wird jetzt exklusiv im Security Monitor verwendet)
-        function drawCameraVisionSquare(cam) {
-            let leftAngle = cam.angle - cam.fov / 2;
-            let rightAngle = cam.angle + cam.fov / 2;
-
-            let farLeftX = cam.x + Math.cos(leftAngle) * cam.range;
-            let farLeftY = cam.y + Math.sin(leftAngle) * cam.range;
-            let farRightX = cam.x + Math.cos(rightAngle) * cam.range;
-            let farRightY = cam.y + Math.sin(rightAngle) * cam.range;
-
-            ctx.fillStyle = 'rgba(168, 85, 247, 0.15)'; 
-            ctx.strokeStyle = 'rgba(168, 85, 247, 0.4)';
-            ctx.lineWidth = 2;
-
-            ctx.beginPath();
-            ctx.moveTo(cam.x, cam.y);
-            ctx.lineTo(farLeftX, farLeftY);
-            ctx.lineTo(farRightX, farRightY);
-            ctx.closePath();
-            ctx.fill();
-            ctx.stroke();
-
-            ctx.fillStyle = '#a855f7';
-            ctx.beginPath(); ctx.arc(cam.x, cam.y, 6, 0, Math.PI * 2); ctx.fill();
-        }
-
-        function isPointInVision(px, py, cam) {
-            let dx = px - cam.x; let dy = py - cam.y;
-            let dist = Math.sqrt(dx*dx + dy*dy);
-            if (dist > cam.range) return false;
-
-            let angleToPoint = Math.atan2(dy, dx);
-            let diff = Math.atan2(Math.sin(angleToPoint - cam.angle), Math.cos(angleToPoint - cam.angle));
-            return Math.abs(diff) <= cam.fov / 2;
-        }
-
-        function drawSecurityMonitorSystem() {
-            ctx.fillStyle = '#050508';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-            const padding = 20;
-            const w = (canvas.width - padding * 3) / 2;
-            const h = (canvas.height - padding * 3) / 2;
-
-            const gridPositions = [
-                { x: padding, y: padding }, { x: padding * 2 + w, y: padding },
-                { x: padding, y: padding * 2 + h }, { x: padding * 2 + w, y: padding * 2 + h }
-            ];
-
-            gameConfig.cameras.forEach((cam, i) => {
-                let pos = gridPositions[i];
-                ctx.save();
-                ctx.beginPath(); ctx.rect(pos.x, pos.y, w, h); ctx.clip();
-
-                ctx.translate(pos.x + w / 2 - cam.x, pos.y + h / 2 - cam.y);
-
-                if (textures.map && textures.map.complete) ctx.drawImage(textures.map, 0, 0, mapWidth, mapHeight);
-
-                drawCameraVisionSquare(cam);
-
-                if (isPointInVision(player.x, player.y, cam)) {
-                    ctx.save();
-                    ctx.translate(player.x, player.y);
-                    if (!player.facingRight) ctx.scale(-1, 1);
-                    if (textures.player && textures.player.complete) {
-                        ctx.drawImage(textures.player, -player.width/2, -player.height/2, player.width, player.height);
-                    }
-                    ctx.restore();
-                }
-                ctx.restore();
-
-                ctx.strokeStyle = '#3b82f6'; ctx.lineWidth = 3;
-                ctx.strokeRect(pos.x, pos.y, w, h);
-
-                ctx.fillStyle = 'rgba(0, 0, 0, 0.6)'; ctx.fillRect(pos.x + 10, pos.y + 10, 185, 30);
-                ctx.fillStyle = '#00ffcc'; ctx.font = 'bold 11px monospace';
-                ctx.fillText(`CAM: ${cam.id}`, pos.x + 15, pos.y + 28);
-            });
-
-            ctx.fillStyle = 'rgba(0, 0, 0, 0.7)'; ctx.fillRect(canvas.width / 2 - 150, canvas.height - 50, 300, 40);
-            ctx.fillStyle = '#fff'; ctx.font = '14px sans-serif'; ctx.textAlign = 'center';
-            ctx.fillText('Tap USE Button to Exit Security', canvas.width / 2, canvas.height - 25);
-            ctx.textAlign = 'left';
+            // Konvertiere die relativen Vent-Button Koordinaten ins Screen-Space für Klickabfragen
+            if (isVenting && currentVentNode) {
+                activeVentButtons.forEach(btn => {
+                    btn.screenX = (currentVentNode.x + btn.relX) - camera.x;
+                    btn.screenY = (currentVentNode.y + btn.relY) - camera.y;
+                });
+            }
         }
 
         function draw() {
@@ -604,27 +658,102 @@
             ctx.save();
             ctx.translate(-camera.x, -camera.y);
 
-            // Hintergrund-Map zeichnen
+            // Hintergrund-Map
             if (textures.map && textures.map.complete) {
                 ctx.drawImage(textures.map, 0, 0, mapWidth, mapHeight);
             } else {
                 ctx.fillStyle = '#1e1e24'; ctx.fillRect(0, 0, mapWidth, mapHeight);
             }
 
-            // INFO: Die Sichtkegel (Sicherheitssystem) und Terminal-Kreise wurden hier entfernt, damit alle Hitboxen unsichtbar sind.
+            // Vents auf die Map zeichnen (Unsichtbar im Normalbetrieb, umrandet im Debugging)
+            vents.forEach(v => {
+                ctx.beginPath();
+                ctx.arc(v.x, v.y, v.radius, 0, Math.PI * 2);
+                if (debugMode) {
+                    ctx.strokeStyle = '#ef4444'; ctx.lineWidth = 2; ctx.stroke();
+                    ctx.fillStyle = 'rgba(239, 68, 68, 0.2)'; ctx.fill();
+                    ctx.fillStyle = '#fff'; ctx.font = '12px monospace';
+                    ctx.fillText(`ID: ${v.id}`, v.x - 12, v.y + 4);
+                } else {
+                    // Normales Spiel: Vents bleiben unsichtbar (oder nutze hier deine Asset-Grafik, falls vorhanden)
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.01)'; ctx.fill(); 
+                }
+            });
 
-            // Spieler zeichnen
-            ctx.save();
-            ctx.translate(player.x, player.y);
-            if (!player.facingRight) ctx.scale(-1, 1);
-            if (textures.player && textures.player.complete) {
-                ctx.drawImage(textures.player, -player.width / 2, -player.height / 2, player.width, player.height);
-            } else {
-                ctx.fillStyle = '#da2222'; ctx.fillRect(-player.width / 2, -player.height / 2, player.width, player.height);
+            // Spieler zeichnen (Ausblenden, wenn im Vent)
+            if (!isVenting) {
+                ctx.save();
+                ctx.translate(player.x, player.y);
+                if (!player.facingRight) ctx.scale(-1, 1);
+                if (textures.player && textures.player.complete) {
+                    ctx.drawImage(textures.player, -player.width / 2, -player.height / 2, player.width, player.height);
+                } else {
+                    ctx.fillStyle = '#da2222'; ctx.fillRect(-player.width / 2, -player.height / 2, player.width, player.height);
+                }
+                ctx.restore();
             }
-            ctx.restore();
 
-            ctx.restore();
+            ctx.restore(); // Kamera-Translation zurücksetzen
+
+            // Mini-Use-Navigationsbuttons über die Map rendern, wenn im Vent
+            if (isVenting && currentVentNode) {
+                activeVentButtons.forEach(btn => {
+                    ctx.save();
+                    ctx.translate(btn.screenX, btn.screenY);
+                    ctx.rotate(btn.angle + Math.PI / 2); // Textur in Richtung Partner drehen
+
+                    if (textures.useBtn && textures.useBtn.complete) {
+                        ctx.drawImage(textures.useBtn, -btn.radius, -btn.radius, btn.radius * 2, btn.radius * 2);
+                    } else {
+                        // Fallback-Grafik Pfeil
+                        ctx.fillStyle = '#3b82f6'; ctx.beginPath(); ctx.arc(0, 0, btn.radius, 0, Math.PI*2); ctx.fill();
+                        ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(0, -8); ctx.lineTo(-6, 2); ctx.lineTo(6, 2); ctx.closePath(); ctx.fillStyle = '#fff'; ctx.fill();
+                    }
+                    ctx.restore();
+                });
+            }
+        }
+
+        // Unverändertes Kamerasystem für den Monitor
+        function drawCameraVisionSquare(cam) {
+            let leftAngle = cam.angle - cam.fov / 2; let rightAngle = cam.angle + cam.fov / 2;
+            let farLeftX = cam.x + Math.cos(leftAngle) * cam.range; let farLeftY = cam.y + Math.sin(leftAngle) * cam.range;
+            let farRightX = cam.x + Math.cos(rightAngle) * cam.range; let farRightY = cam.y + Math.sin(rightAngle) * cam.range;
+            ctx.fillStyle = 'rgba(168, 85, 247, 0.15)'; ctx.strokeStyle = 'rgba(168, 85, 247, 0.4)'; ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.moveTo(cam.x, cam.y); ctx.lineTo(farLeftX, farLeftY); ctx.lineTo(farRightX, farRightY); ctx.closePath(); ctx.fill(); ctx.stroke();
+            ctx.fillStyle = '#a855f7'; ctx.beginPath(); ctx.arc(cam.x, cam.y, 6, 0, Math.PI * 2); ctx.fill();
+        }
+
+        function isPointInVision(px, py, cam) {
+            let dx = px - cam.x; let dy = py - cam.y; let dist = Math.sqrt(dx*dx + dy*dy); if (dist > cam.range) return false;
+            let angleToPoint = Math.atan2(dy, dx); let diff = Math.atan2(Math.sin(angleToPoint - cam.angle), Math.cos(angleToPoint - cam.angle));
+            return Math.abs(diff) <= cam.fov / 2;
+        }
+
+        function drawSecurityMonitorSystem() {
+            ctx.fillStyle = '#050508'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+            const padding = 20; const w = (canvas.width - padding * 3) / 2; const h = (canvas.height - padding * 3) / 2;
+            const gridPositions = [
+                { x: padding, y: padding }, { x: padding * 2 + w, y: padding },
+                { x: padding, y: padding * 2 + h }, { x: padding * 2 + w, y: padding * 2 + h }
+            ];
+            gameConfig.cameras.forEach((cam, i) => {
+                let pos = gridPositions[i]; ctx.save(); ctx.beginPath(); ctx.rect(pos.x, pos.y, w, h); ctx.clip();
+                ctx.translate(pos.x + w / 2 - cam.x, pos.y + h / 2 - cam.y);
+                if (textures.map && textures.map.complete) ctx.drawImage(textures.map, 0, 0, mapWidth, mapHeight);
+                drawCameraVisionSquare(cam);
+                if (!isVenting && isPointInVision(player.x, player.y, cam)) {
+                    ctx.save(); ctx.translate(player.x, player.y); if (!player.facingRight) ctx.scale(-1, 1);
+                    if (textures.player && textures.player.complete) ctx.drawImage(textures.player, -player.width/2, -player.height/2, player.width, player.height);
+                    ctx.restore();
+                }
+                ctx.restore();
+                ctx.strokeStyle = '#3b82f6'; ctx.lineWidth = 3; ctx.strokeRect(pos.x, pos.y, w, h);
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.6)'; ctx.fillRect(pos.x + 10, pos.y + 10, 185, 30);
+                ctx.fillStyle = '#00ffcc'; ctx.font = 'bold 11px monospace'; ctx.fillText(`CAM: ${cam.id}`, pos.x + 15, pos.y + 28);
+            });
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.7)'; ctx.fillRect(canvas.width / 2 - 150, canvas.height - 50, 300, 40);
+            ctx.fillStyle = '#fff'; ctx.font = '14px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('Tap USE Button to Exit Security', canvas.width / 2, canvas.height - 25); ctx.textAlign = 'left';
         }
 
         function loop() {
