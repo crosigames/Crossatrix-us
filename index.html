@@ -1,395 +1,922 @@
 <!DOCTYPE html>
-<html lang="de">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Map Editor</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Among Us Clone - Mobile Edition</title>
     <style>
-        body {
+        * {
+            box-sizing: border-box;
             margin: 0;
-            background-color: #1a1a1a;
-            color: #ffffff;
+            padding: 0;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        body, html {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #0b0b0e;
             font-family: sans-serif;
+        }
+        canvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+        }
+        
+        #debug-trigger-btn {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            background: rgba(30, 30, 36, 0.7);
+            color: #ef4444;
+            border: 1.5px solid #ef4444;
+            padding: 6px 12px;
+            font-size: 11px;
+            font-weight: bold;
+            font-family: monospace;
+            border-radius: 4px;
+            z-index: 50;
+            cursor: pointer;
+            letter-spacing: 1px;
+        }
+        #debug-trigger-btn:active {
+            background: #ef4444;
+            color: #000;
+        }
+
+        #joystick-zone {
+            position: absolute;
+            bottom: 40px;
+            left: 40px;
+            width: 120px;
+            height: 120px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            touch-action: none;
+            z-index: 10;
+        }
+        #joystick-knob {
+            width: 50px;
+            height: 50px;
+            background: rgba(255, 255, 255, 0.5);
+            border-radius: 50%;
+        }
+        #action-btn {
+            position: absolute;
+            bottom: 50px;
+            right: 50px;
+            width: 90px;
+            height: 90px;
+            background-size: contain;
+            background-position: center;
+            background-repeat: no-repeat;
+            touch-action: none;
+            z-index: 10;
+            display: block;
+        }
+        #engineer-btn {
+            position: absolute;
+            bottom: 155px;
+            right: 50px;
+            width: 90px;
+            height: 90px;
+            background-size: contain;
+            background-position: center;
+            background-repeat: no-repeat;
+            touch-action: none;
+            z-index: 10;
+            display: none;
+            opacity: 0.4;
+            transition: opacity 0.2s;
+        }
+        
+        #role-selection-overlay, #debug-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(5, 5, 8, 0.95);
+            z-index: 1000;
             display: flex;
             flex-direction: column;
             align-items: center;
-            padding: 20px;
+            justify-content: center;
+            color: #fff;
         }
-        #controls {
-            margin-bottom: 15px;
+        #debug-overlay {
+            background: rgba(11, 11, 14, 0.95);
+            display: none;
+        }
+        .window-title {
+            font-size: 24px;
+            margin-bottom: 20px;
+            letter-spacing: 2px;
+            font-family: monospace;
+        }
+        .role-buttons, .debug-controls {
             display: flex;
-            gap: 10px;
+            gap: 15px;
+            flex-direction: row;
             align-items: center;
+            flex-wrap: wrap;
+            justify-content: center;
+            max-width: 90%;
         }
-        button {
-            background-color: #333;
-            color: white;
-            border: 1px solid #555;
-            padding: 8px 15px;
+        .panel-btn {
+            background: #1e1e24;
+            color: #fff;
+            border: 2px solid #3b82f6;
+            padding: 12px 24px;
+            font-size: 16px;
+            font-weight: bold;
+            font-family: monospace;
+            border-radius: 8px;
             cursor: pointer;
-            border-radius: 4px;
         }
-        button:hover {
-            background-color: #444;
+        .panel-btn:active {
+            background: #3b82f6;
+            color: #000;
         }
-        button.active {
-            background-color: #007acc;
-            border-color: #0098ff;
+        #btn-engineer { border-color: #a855f7; }
+        #btn-engineer:active { background: #a855f7; color: #000; }
+        
+        .debug-input {
+            background: #16161a;
+            border: 2px solid #4b5563;
+            color: #fff;
+            padding: 10px;
+            font-size: 16px;
+            border-radius: 6px;
+            width: 100px;
+            text-align: center;
+            font-family: monospace;
         }
-        #canvas-container {
-            position: relative;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
-        }
-        canvas {
-            background-color: #111;
-            display: block;
+        #debug-status-text {
+            margin-top: 15px;
+            font-family: monospace;
+            font-size: 13px;
+            color: #a855f7;
+            font-weight: bold;
         }
     </style>
 </head>
 <body>
 
-    <div id="controls">
-        <button id="btn-wall" class="active" onclick="setMode('wall')">Wände entfernen</button>
-        <button id="btn-vent" onclick="setMode('vent')">Vents platzieren</button>
-        <button id="btn-remove-vent" onclick="setMode('remove-vent')">Vents entfernen</button>
-        <button onclick="copyVentsJSON()">Vents JSON kopieren</button>
+    <button id="debug-trigger-btn" onclick="toggleDebugMenu()">DEBUG</button>
+
+    <div id="role-selection-overlay">
+        <h1 class="window-title">WÄHLE DEINE ROLLE</h1>
+        <div class="role-buttons">
+            <button class="panel-btn" id="btn-crewmate" onclick="selectRole('crewmate')">CREWMATE</button>
+            <button class="panel-btn" id="btn-engineer" onclick="selectRole('engineer')">ENGINEER</button>
+        </div>
     </div>
 
-    <div id="canvas-container">
-        <canvas id="editorCanvas" width="1920" height="1080"></style>
+    <div id="debug-overlay">
+        <h1 class="window-title">DEBUG / VENT DEV MODE</h1>
+        <div class="debug-controls">
+            <input type="text" id="vent-id" class="debug-input" placeholder="ID (z.B. 1)" value="1">
+            <input type="number" id="vent-size" class="debug-input" placeholder="Radius" value="25">
+            <button class="panel-btn" onclick="startVentPlacement()">Vent platzieren</button>
+            <button class="panel-btn" style="border-color:#ef4444" onclick="startVentRemoval()">Vent entfernen</button>
+            <button class="panel-btn" style="border-color:#3b82f6" onclick="copyVentsJSON()">JSON kopieren</button>
+            <button class="panel-btn" style="border-color:#10b981" onclick="closeDebugMenu()">Schließen</button>
+        </div>
+        <p id="debug-status-text">Hitboxen sind permanent aktiv.</p>
     </div>
 
-<script>
-const canvas = document.getElementById('editorCanvas');
-const ctx = canvas.getContext('2d');
+    <canvas id="gameCanvas"></canvas>
+    
+    <div id="joystick-zone">
+        <div id="joystick-knob"></div>
+    </div>
+    
+    <div id="action-btn"></div>
+    <div id="engineer-btn"></div>
 
-let currentMode = 'wall'; // 'wall', 'vent', 'remove-vent'
-let vents = [];
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
 
-// Deine übergebenen Wand-Daten
-let walls = [
-  { "x1": 1206, "y1": 34, "x2": 1333, "y2": 165 },
-  { "x1": 1326, "y1": 146, "x2": 1324, "y2": 215 },
-  { "x1": 1198, "y1": 35, "x2": 901, "y2": 33 },
-  { "x1": 944, "y1": 32, "x2": 866, "y2": 109 },
-  { "x1": 859, "y1": 211, "x2": 860, "y2": 86 },
-  { "x1": 857, "y1": 270, "x2": 857, "y2": 360 },
-  { "x1": 858, "y1": 368, "x2": 957, "y2": 471 },
-  { "x1": 958, "y1": 474, "x2": 1055, "y2": 472 },
-  { "x1": 1121, "y1": 471, "x2": 1215, "y2": 471 },
-  { "x1": 1329, "y1": 358, "x2": 1222, "y2": 466 },
-  { "x1": 1322, "y1": 270, "x2": 1326, "y2": 361 },
-  { "x1": 861, "y1": 265, "x2": 786, "y2": 269 },
-  { "x1": 784, "y1": 274, "x2": 780, "y2": 317 },
-  { "x1": 783, "y1": 320, "x2": 845, "y2": 324 },
-  { "x1": 841, "y1": 322, "x2": 840, "y2": 393 },
-  { "x1": 844, "y1": 397, "x2": 836, "y2": 420 },
-  { "x1": 840, "y1": 422, "x2": 908, "y2": 495 },
-  { "x1": 909, "y1": 495, "x2": 913, "y2": 515 },
-  { "x1": 913, "y1": 516, "x2": 705, "y2": 523 },
-  { "x1": 707, "y1": 525, "x2": 663, "y2": 483 },
-  { "x1": 668, "y1": 486, "x2": 662, "y2": 300 },
-  { "x1": 663, "y1": 293, "x2": 714, "y2": 291 },
-  { "x1": 717, "y1": 290, "x2": 716, "y2": 276 },
-  { "x1": 716, "y1": 272, "x2": 529, "y2": 277 },
-  { "x1": 535, "y1": 274, "x2": 522, "y2": 344 },
-  { "x1": 521, "y1": 350, "x2": 473, "y2": 353 },
-  { "x1": 471, "y1": 356, "x2": 469, "y2": 477 },
-  { "x1": 472, "y1": 479, "x2": 522, "y2": 476 },
-  { "x1": 523, "y1": 480, "x2": 523, "y2": 406 },
-  { "x1": 524, "y1": 436, "x2": 566, "y2": 391 },
-  { "x1": 566, "y1": 390, "x2": 601, "y2": 391 },
-  { "x1": 608, "y1": 395, "x2": 634, "y2": 419 },
-  { "x1": 639, "y1": 422, "x2": 645, "y2": 576 },
-  { "x1": 636, "y1": 580, "x2": 538, "y2": 584 },
-  { "x1": 532, "y1": 585, "x2": 527, "y2": 532 },
-  { "x1": 527, "y1": 531, "x2": 474, "y2": 531 },
-  { "x1": 473, "y1": 536, "x2": 470, "y2": 634 },
-  { "x1": 473, "y1": 634, "x2": 471, "y2": 664 },
-  { "x1": 472, "y1": 664, "x2": 516, "y2": 666 },
-  { "x1": 518, "y1": 665, "x2": 524, "y2": 735 },
-  { "x1": 530, "y1": 729, "x2": 658, "y2": 733 },
-  { "x1": 662, "y1": 738, "x2": 663, "y2": 844 },
-  { "x1": 663, "y1": 845, "x2": 704, "y2": 849 },
-  { "x1": 705, "y1": 850, "x2": 704, "y2": 813 },
-  { "x1": 703, "y1": 817, "x2": 695, "y2": 566 },
-  { "x1": 810, "y1": 696, "x2": 705, "y2": 692 },
-  { "x1": 809, "y1": 696, "x2": 807, "y2": 668 },
-  { "x1": 807, "y1": 669, "x2": 706, "y2": 671 },
-  { "x1": 704, "y1": 588, "x2": 760, "y2": 584 },
-  { "x1": 762, "y1": 585, "x2": 766, "y2": 599 },
-  { "x1": 768, "y1": 603, "x2": 907, "y2": 600 },
-  { "x1": 911, "y1": 602, "x2": 910, "y2": 610 },
-  { "x1": 913, "y1": 613, "x2": 865, "y2": 663 },
-  { "x1": 862, "y1": 662, "x2": 862, "y2": 744 },
-  { "x1": 861, "y1": 747, "x2": 824, "y2": 790 },
-  { "x1": 825, "y1": 792, "x2": 768, "y2": 795 },
-  { "x1": 770, "y1": 794, "x2": 766, "y2": 851 },
-  { "x1": 769, "y1": 853, "x2": 904, "y2": 850 },
-  { "x1": 904, "y1": 845, "x2": 901, "y2": 684 },
-  { "x1": 904, "y1": 678, "x2": 902, "y2": 706 },
-  { "x1": 913, "y1": 727, "x2": 1005, "y2": 646 },
-  { "x1": 1013, "y1": 645, "x2": 1058, "y2": 649 },
-  { "x1": 1059, "y1": 644, "x2": 1059, "y2": 475 },
-  { "x1": 62, "y1": 930, "x2": 34, "y2": 916 },
-  { "x1": 855, "y1": 214, "x2": 523, "y2": 207 },
-  { "x1": 525, "y1": 213, "x2": 522, "y2": 164 },
-  { "x1": 514, "y1": 156, "x2": 377, "y2": 156 },
-  { "x1": 381, "y1": 160, "x2": 348, "y2": 183 },
-  { "x1": 353, "y1": 190, "x2": 476, "y2": 197 },
-  { "x1": 477, "y1": 197, "x2": 479, "y2": 301 },
-  { "x1": 478, "y1": 293, "x2": 335, "y2": 292 },
-  { "x1": 333, "y1": 293, "x2": 329, "y2": 343 },
-  { "x1": 332, "y1": 342, "x2": 402, "y2": 351 },
-  { "x1": 406, "y1": 365, "x2": 402, "y2": 476 },
-  { "x1": 401, "y1": 482, "x2": 356, "y2": 481 },
-  { "x1": 350, "y1": 484, "x2": 344, "y2": 393 },
-  { "x1": 343, "y1": 416, "x2": 281, "x2": 414 },
-  { "x1": 281, "y1": 421, "x2": 279, "y2": 324 },
-  { "x1": 280, "y1": 330, "x2": 272, "y2": 329 },
-  { "x1": 280, "y1": 353, "x2": 241, "y2": 348 },
-  { "x1": 241, "y1": 353, "x2": 188, "y2": 396 },
-  { "x1": 183, "y1": 398, "x2": 183, "y2": 414 },
-  { "x1": 184, "y1": 416, "x2": 237, "y2": 414 },
-  { "x1": 240, "y1": 416, "x2": 241, "y2": 529 },
-  { "x1": 243, "y1": 533, "x2": 199, "y2": 533 },
-  { "x1": 198, "y1": 534, "x2": 197, "y2": 614 },
-  { "x1": 198, "y1": 620, "x2": 236, "y2": 646 },
-  { "x1": 243, "y1": 651, "x2": 275, "y2": 644 },
-  { "x1": 276, "y1": 647, "x2": 275, "y2": 578 },
-  { "x1": 280, "y1": 580, "x2": 335, "y2": 582 },
-  { "x1": 338, "y1": 583, "x2": 340, "y2": 531 },
-  { "x1": 342, "y1": 528, "x2": 400, "y2": 528 },
-  { "x1": 400, "y1": 533, "x2": 402, "y2": 635 },
-  { "x1": 401, "y1": 637, "x2": 399, "y2": 665 },
-  { "x1": 397, "y1": 667, "x2": 340, "y2": 665 },
-  { "x1": 75, "y1": 614, "x2": 79, "y2": 629 },
-  { "x1": 337, "y1": 668, "x2": 338, "y2": 687 },
-  { "x1": 339, "y1": 690, "x2": 475, "y2": 694 },
-  { "x1": 481, "y1": 696, "x2": 478, "y2": 784 },
-  { "x1": 478, "y1": 785, "x2": 340, "y2": 790 },
-  { "x1": 337, "y1": 792, "x2": 330, "y2": 809 },
-  { "x1": 330, "y1": 811, "x2": 372, "y2": 848 },
-  { "x1": 375, "y1": 850, "x2": 520, "y2": 854 },
-  { "x1": 523, "y1": 855, "x2": 525, "y2": 790 },
-  { "x1": 527, "y1": 784, "x2": 602, "y2": 784 },
-  { "x1": 601, "y1": 791, "x2": 599, "y2": 901 },
-  { "x1": 603, "y1": 899, "x2": 905, "y2": 901 },
-  { "x1": 901, "y1": 900, "x2": 993, "y2": 1001 },
-  { "x1": 991, "y1": 1000, "x2": 1160, "y2": 1000 },
-  { "x1": 1166, "y1": 1001, "x2": 1162, "y2": 812 },
-  { "x1": 1166, "y1": 818, "x2": 1290, "y2": 814 },
-  { "x1": 1291, "y1": 814, "x2": 1294, "y2": 833 },
-  { "x1": 1293, "y1": 836, "x2": 1291, "y2": 863 },
-  { "x1": 1294, "y1": 866, "x2": 1186, "y2": 871 },
-  { "x1": 1182, "y1": 874, "x2": 1177, "y2": 921 },
-  { "x1": 1179, "y1": 922, "x2": 1203, "y2": 925 },
-  { "x1": 1205, "y1": 928, "x2": 1197, "y2": 955 },
-  { "x1": 1200, "y1": 955, "x2": 1188, "y2": 956 },
-  { "x1": 1193, "y1": 966, "x2": 1220, "y2": 991 },
-  { "x1": 1222, "y1": 990, "x2": 1233, "y2": 989 },
-  { "x1": 1234, "y1": 992, "x2": 1236, "y2": 971 },
-  { "x1": 1237, "y1": 971, "x2": 1260, "y2": 969 },
-  { "x1": 1259, "y1": 968, "x2": 1336, "y2": 969 },
-  { "x1": 1335, "y1": 970, "x2": 1337, "y2": 989 },
-  { "x1": 1344, "y1": 991, "x2": 1387, "y2": 951 },
-  { "x1": 1388, "y1": 957, "x2": 1389, "y2": 836 },
-  { "x1": 1389, "y1": 840, "x2": 1360, "y2": 838 },
-  { "x1": 1385, "y1": 869, "x2": 1362, "y2": 867 },
-  { "x1": 1362, "y1": 866, "x2": 1358, "y2": 807 },
-  { "x1": 1361, "y1": 810, "x2": 1398, "y2": 809 },
-  { "x1": 1404, "y1": 804, "x2": 1435, "y2": 800 },
-  { "x1": 1437, "y1": 803, "x2": 1476, "y2": 837 },
-  { "x1": 1475, "y1": 849, "x2": 1412, "y2": 847 },
-  { "x1": 1403, "y1": 845, "x2": 1406, "y2": 889 },
-  { "x1": 1404, "y1": 889, "x2": 1500, "y2": 897 },
-  { "x1": 1532, "y1": 859, "x2": 1504, "y2": 894 },
-  { "x1": 1532, "y1": 862, "x2": 1533, "y2": 823 },
-  { "x1": 1533, "y1": 822, "x2": 1534, "y2": 720 },
-  { "x1": 1533, "y1": 715, "x2": 1584, "y2": 713 },
-  { "x1": 1537, "y1": 676, "x2": 1593, "y2": 676 },
-  { "x1": 1593, "y1": 676, "x2": 1594, "y2": 712 },
-  { "x1": 1537, "y1": 675, "x2": 1533, "y2": 575 },
-  { "x1": 1469, "y1": 676, "x2": 1472, "y2": 720 },
-  { "x1": 1473, "y1": 720, "x2": 1446, "y2": 755 },
-  { "x1": 1444, "y1": 751, "x2": 1396, "y2": 757 },
-  { "x1": 1399, "y1": 756, "x2": 1159, "y2": 757 },
-  { "x1": 1159, "y1": 751, "x2": 1158, "y2": 623 },
-  { "x1": 1159, "y1": 621, "x2": 1144, "y2": 622 },
-  { "x1": 1156, "y1": 649, "x2": 1123, "y2": 649 },
-  { "x1": 1125, "y1": 655, "x2": 1120, "y2": 595 },
-  { "x1": 1124, "y1": 602, "x2": 1201, "y2": 610 },
-  { "x1": 1197, "y1": 602, "x2": 1198, "y2": 701 },
-  { "x1": 1203, "y1": 704, "x2": 1364, "y2": 701 },
-  { "x1": 1363, "y1": 704, "x2": 1401, "y2": 666 },
-  { "x1": 1397, "y1": 658, "x2": 1402, "y2": 517 },
-  { "x1": 1400, "y1": 519, "x2": 1369, "y2": 515 },
-  { "x1": 1364, "y1": 516, "x2": 1364, "y2": 558 },
-  { "x1": 1365, "y1": 558, "x2": 1248, "y2": 562 },
-  { "x1": 1251, "y1": 567, "x2": 1246, "y2": 522 },
-  { "x1": 1244, "y1": 518, "x2": 1203, "y2": 515 },
-  { "x1": 1200, "y1": 515, "x2": 1196, "y2": 556 },
-  { "x1": 1198, "y1": 556, "x2": 1118, "y2": 548 },
-  { "x1": 1123, "y1": 549, "x2": 1118, "y2": 471 },
-  { "x1": 1344, "y1": 619, "x2": 1259, "y2": 620 },
-  { "x1": 1260, "y1": 621, "x2": 1259, "y2": 648 },
-  { "x1": 1259, "y1": 652, "x2": 1343, "y2": 645 },
-  { "x1": 1343, "y1": 649, "x2": 1345, "y2": 630 },
-  { "x1": 1372, "y1": 398, "x2": 1310, "y2": 462 },
-  { "x1": 1315, "y1": 466, "x2": 1429, "y2": 462 },
-  { "x1": 1374, "y1": 397, "x2": 1472, "y2": 392 },
-  { "x1": 1470, "y1": 392, "x2": 1473, "y2": 272 },
-  { "x1": 1475, "y1": 275, "x2": 1456, "y2": 261 },
-  { "x1": 1457, "y1": 264, "x2": 1333, "y2": 273 },
-  { "x1": 1438, "y1": 464, "x2": 1435, "y2": 453 },
-  { "x1": 1433, "y1": 449, "x2": 1566, "y2": 448 },
-  { "x1": 1568, "y1": 449, "x2": 1572, "y2": 529 },
-  { "x1": 1569, "y1": 528, "x2": 1480, "y2": 528 },
-  { "x1": 1477, "y1": 532, "x2": 1471, "y2": 673 },
-  { "x1": 1536, "y1": 570, "x2": 1630, "y2": 565 },
-  { "x1": 1629, "y1": 572, "x2": 1627, "y2": 512 },
-  { "x1": 1627, "y1": 510, "x2": 1747, "y2": 507 },
-  { "x1": 1744, "y1": 510, "x2": 1747, "y2": 554 },
-  { "x1": 1745, "y1": 558, "x2": 1826, "y2": 562 },
-  { "x1": 1891, "y1": 516, "x2": 1834, "y2": 561 },
-  { "x1": 1893, "y1": 514, "x2": 1894, "y2": 416 },
-  { "x1": 1896, "y1": 435, "x2": 1829, "y2": 373 },
-  { "x1": 1826, "y1": 376, "x2": 1751, "y2": 376 },
-  { "x1": 1747, "y1": 370, "x2": 1742, "y2": 445 },
-  { "x1": 1742, "y1": 445, "x2": 1631, "y2": 451 },
-  { "x1": 1626, "y1": 455, "x2": 1624, "y2": 379 },
-  { "x1": 1621, "y1": 405, "x2": 1539, "y2": 398 },
-  { "x1": 1534, "y1": 404, "x2": 1533, "y2": 256 },
-  { "x1": 1535, "y1": 251, "x2": 1542, "y2": 215 },
-  { "x1": 1546, "y1": 213, "x2": 1586, "y2": 222 },
-  { "x1": 1589, "y1": 220, "x2": 1586, "y2": 184 },
-  { "x1": 1586, "y1": 186, "x2": 1493, "y2": 104 },
-  { "x1": 1497, "y1": 102, "x2": 1401, "y2": 101 },
-  { "x1": 1453, "y1": 110, "x2": 1451, "y2": 172 },
-  { "x1": 1452, "y1": 177, "x2": 1433, "y2": 209 },
-  { "x1": 1431, "y1": 211, "x2": 1326, "y2": 211 }
-];
+        const mapWidth = 1920;
+        const mapHeight = 1080;
+        const wallThickness = 15;
 
-// UI Modus wechseln
-function setMode(mode) {
-    currentMode = mode;
-    document.querySelectorAll('#controls button').forEach(btn => btn.classList.remove('active'));
-    if(mode === 'wall') document.getElementById('btn-wall').classList.add('active');
-    if(mode === 'vent') document.getElementById('btn-vent').classList.add('active');
-    if(mode === 'remove-vent') document.getElementById('btn-remove-vent').classList.add('active');
-}
-
-// Canvas neu zeichnen
-function draw() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    // Grid zeichnen (optional, hilft bei der Orientierung)
-    ctx.strokeStyle = '#222';
-    ctx.lineWidth = 1;
-    for(let x = 0; x < canvas.width; x += 50) {
-        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
-    }
-    for(let y = 0; y < canvas.height; y += 50) {
-        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
-    }
-
-    // Wände zeichnen
-    ctx.strokeStyle = '#ffffff';
-    ctx.lineWidth = 3;
-    ctx.lineCap = 'round';
-    walls.forEach(wall => {
-        ctx.beginPath();
-        ctx.moveTo(wall.x1, wall.y1);
-        ctx.lineTo(wall.x2, wall.y2);
-        ctx.stroke();
-    });
-
-    // Vents zeichnen
-    vents.forEach(vent => {
-        ctx.fillStyle = '#00ffcc';
-        ctx.strokeStyle = '#00b38f';
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.arc(vent.x, vent.y, 15, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.stroke();
+        let playerRole = null;
+        let gameActive = false;
         
-        // Kleines "V" Symbol im Kreis
-        ctx.fillStyle = '#111';
-        ctx.font = 'bold 12px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText('V', vent.x, vent.y);
-    });
-}
+        // Hitboxen standardmäßig dauerhaft anzeigen
+        let debugMode = true;
+        let debugMenuOpen = false;
+        let placementActive = false;
+        let removalActive = false;
 
-// --- HITBOX PRÄZISION (Vektorprojektion) ---
-function isClickOnWall(cx, cy, wall, tolerance = 10) {
-    const { x1, y1, x2, y2 } = wall;
-    const l2 = Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2);
-    if (l2 === 0) return false;
+        let vents = []; 
+        let currentVentIdInput = "1";
+        let currentVentSizeInput = 25;
+        
+        let isVenting = false;
+        let currentVentNode = null;
+        let activeVentButtons = [];
+        let gameConfig = {
+            "securityScreen": { "cx": 587, "cy": 376, "radius": 35, "interactRange": 60 },
+            "cameras": [
+                { "id": "Medbay-Cafeteria Hallway", "x": 799, "y": 208, "angle": 1.57, "fov": 1.04, "range": 180 },
+                { "id": "Security ", "x": 479, "y": 470, "angle": 3.14, "fov": 1.04, "range": 160 },
+                { "id": "Admin", "x": 1138, "y": 527, "angle": 3.45, "fov": 1.57, "range": 170 },
+                { "id": "Navigation Hallway", "x": 1653, "y": 431, "angle": 0, "fov": 1.04, "range": 190 }
+            ]
+        };
+        const wallLines = [
+            { "x1": 1206, "y1": 34,  "x2": 1333, "y2": 165 }, { "x1": 1326, "y1": 146, "x2": 1324, "y2": 215 },
+            { "x1": 1198, "y1": 35,  "x2": 901,  "y2": 33  }, { "x1": 944,  "y1": 32,  "x2": 866,  "y2": 109 },
+            { "x1": 859,  "y1": 211, "x2": 860,  "y2": 86  }, { "x1": 857,  "y1": 270, "x2": 857,  "y2": 360 },
+            { "x1": 858,  "y1": 368, "x2": 957,  "y2": 471 }, { "x1": 958,  "y1": 474, "x2": 1055, "y2": 472 },
+            { "x1": 1121, "y1": 471, "x2": 1215, "y2": 471 }, { "x1": 1329, "y1": 358, "x2": 1222, "y2": 466 },
+            { "x1": 1322, "y1": 270, "x2": 1326, "y2": 361 }, { "x1": 861,  "y1": 265, "x2": 786,  "y2": 269 },
+            { "x1": 784,  "y1": 274, "x2": 780,  "y2": 317 }, { "x1": 783,  "y1": 320, "x2": 845,  "y2": 324 },
+            { "x1": 841,  "y1": 322, "x2": 840,  "y2": 393 }, { "x1": 844,  "y1": 397, "x2": 836,  "y2": 420 },
+            { "x1": 840,  "y1": 422, "x2": 908,  "y2": 495 }, { "x1": 909,  "y1": 495, "x2": 913,  "y2": 515 },
+            { "x1": 913,  "y1": 516, "x2": 705,  "y2": 523 }, { "x1": 707,  "y1": 525, "x2": 663,  "y2": 483 },
+            { "x1": 668,  "y1": 486, "x2": 662,  "y2": 300 }, { "x1": 663,  "y1": 293, "x2": 714,  "y2": 291 },
+            { "x1": 717,  "y1": 290, "x2": 716,  "y2": 276 }, { "x1": 716,  "y1": 272, "x2": 529,  "y2": 277 },
+            { "x1": 535,  "y1": 274, "x2": 522,  "y2": 164 }, { "x1": 521,  "y1": 350, "x2": 473,  "y2": 353 },
+            { "x1": 471,  "y1": 356, "x2": 469,  "y2": 477 }, { "x1": 472,  "y1": 479, "x2": 522,  "y2": 476 },
+            { "x1": 523,  "y1": 480, "x2": 523,  "y2": 406 }, { "x1": 524,  "y1": 436, "x2": 566,  "y2": 391 },
+            { "x1": 566,  "y1": 390, "x2": 0.5,   "y2": 391 }, { "x1": 608,  "y1": 395, "x2": 634,  "y2": 419 },
+            { "x1": 639,  "y1": 422, "x2": 645,  "y2": 576 }, { "x1": 636,  "y1": 580, "x2": 538,  "y2": 584 },
+            { "x1": 532,  "y1": 585, "x2": 527,  "y2": 532 }, { "x1": 527,  "y1": 531, "x2": 474,  "y2": 531 },
+            { "x1": 473,  "y1": 536, "x2": 470,  "y2": 634 }, { "x1": 473,  "y1": 634, "x2": 471,  "y2": 664 },
+            { "x1": 472,  "y1": 664, "x2": 516,  "y2": 666 }, { "x1": 518,  "y1": 665, "x2": 524,  "y2": 735 },
+            { "x1": 530,  "y1": 729, "x2": 658,  "y2": 733 }, { "x1": 662,  "y1": 738, "x2": 663,  "y2": 844 },
+            { "x1": 663,  "y1": 845, "x2": 704,  "y2": 849 }, { "x1": 705,  "y1": 850, "x2": 704,  "y2": 813 },
+            { "x1": 703,  "y1": 817, "x2": 695,  "y2": 566 }, { "x1": 810,  "y1": 696, "x2": 705,  "y2": 692 },
+            { "x1": 809,  "y1": 696, "x2": 807,  "y2": 668 }, { "x1": 807,  "y1": 669, "x2": 706,  "y2": 671 },
+            { "x1": 704,  "y1": 588, "x2": 760,  "y2": 584 }, { "x1": 762,  "y1": 585, "x2": 766,  "y2": 599 },
+            { "x1": 768,  "y1": 603, "x2": 907,  "y2": 600 }, { "x1": 911,  "y1": 602, "x2": 910,  "y2": 610 },
+            { "x1": 913,  "y1": 613, "x2": 865,  "y2": 663 }, { "x1": 862,  "y1": 662, "x2": 862,  "y2": 744 },
+            { "x1": 861,  "y1": 747, "x2": 824,  "y2": 790 }, { "x1": 825,  "y1": 792, "x2": 768,  "y2": 795 },
+            { "x1": 770,  "y1": 794, "x2": 766,  "y2": 851 }, { "x1": 769,  "y1": 853, "x2": 904,  "y2": 850 },
+            { "x1": 904,  "y1": 845, "x2": 901,  "y2": 684 }, { "x1": 904,  "y1": 678, "x2": 902,  "y2": 706 },
+            { "x1": 913,  "y1": 727, "x2": 1005, "y2": 646 }, { "x1": 1013, "y1": 645, "x2": 1058, "y2": 649 },
+            { "x1": 1059, "y1": 644, "x2": 1059, "y2": 475 }, { "x1": 62,   "y1": 930, "x2": 34,   "y2": 916 },
+            { "x1": 855,  "y1": 214, "x2": 523,  "y2": 207 }, { "x1": 525,  "y1": 213, "x2": 522,  "y2": 164 },
+            { "x1": 514,  "y1": 156, "x2": 377,  "y2": 156 }, { "x1": 381,  "y1": 160, "x2": 348,  "y2": 183 },
+            { "x1": 353,  "y1": 190, "x2": 476,  "y2": 197 }, { "x1": 477,  "y1": 197, "x2": 479,  "y2": 301 },
+            { "x1": 478,  "y1": 293, "x2": 335,  "y2": 292 }, { "x1": 333,  "y1": 293, "x2": 329,  "y2": 343 },
+            { "x1": 332,  "y1": 342, "x2": 402,  "y2": 351 }, { "x1": 406,  "y1": 365, "x2": 402,  "y2": 476 },
+            { "x1": 401,  "y1": 482, "x2": 356,  "y2": 481 }, { "x1": 350,  "y1": 484, "x2": 344,  "y2": 393 },
+            { "x1": 343,  "y1": 416, "x2": 281,  "y2": 414 }, { "x1": 281,  "y1": 421, "x2": 279,  "y2": 324 },
+            { "x1": 280,  "y1": 330, "x2": 272,  "y2": 329 }, { "x1": 280,  "y1": 353, "x2": 241,  "y2": 348 },
+            { "x1": 241,  "y1": 353, "x2": 188,  "y2": 396 }, { "x1": 183,  "y1": 398, "x2": 183,  "y2": 414 },
+            { "x1": 184,  "y1": 416, "x2": 237,  "y2": 414 }, { "x1": 240,  "y1": 416, "x2": 241,  "y2": 529 },
+            { "x1": 243,  "y1": 533, "x2": 199,  "y2": 533 }, { "x1": 198,  "y1": 534, "x2": 197,  "y2": 614 },
+            { "x1": 198,  "y1": 620, "x2": 236,  "y2": 646 }, { "x1": 243,  "y1": 651, "x2": 275,  "y2": 644 },
+            { "x1": 276,  "y1": 647, "x2": 275,  "y2": 578 }, { "x1": 280,  "y1": 580, "x2": 335,  "y2": 582 },
+            { "x1": 338,  "y1": 583, "x2": 340,  "y2": 531 }, { "x1": 342,  "y1": 528, "x2": 400,  "y2": 528 },
+            { "x1": 400,  "y1": 533, "x2": 402,  "y2": 635 }, { "x1": 401,  "y1": 637, "x2": 399,  "y2": 665 },
+            { "x1": 397,  "y1": 667, "x2": 340,  "y2": 665 }, { "x1": 75,   "y1": 614, "x2": 79,   "y2": 629 },
+            { "x1": 337,  "y1": 668, "x2": 338,  "y2": 863 }, { "x1": 339,  "y1": 690, "x2": 475,  "y2": 694 },
+            { "x1": 481,  "y1": 696, "x2": 478,  "y2": 784 }, { "x1": 478,  "y1": 785, "x2": 340,  "y2": 790 },
+            { "x1": 337,  "y1": 792, "x2": 330,  "y2": 809 }, { "x1": 330,  "y1": 811, "x2": 372,  "y2": 848 },
+            { "x1": 375,  "y1": 850, "x2": 520,  "y2": 854 }, { "x1": 523,  "y1": 855, "x2": 525,  "y2": 790 },
+            { "x1": 527,  "y1": 784, "x2": 602,  "y2": 784 }, { "x1": 601,  "y1": 791, "x2": 599,  "y2": 901 },
+            { "x1": 603,  "y1": 899, "x2": 905,  "y2": 901 }, { "x1": 901,  "y1": 900, "x2": 993,  "y2": 1001 },
+            { "x1": 991,  "y1": 1000, "x2": 1160, "y2": 1000 }, { "x1": 1166, "y1": 1001, "x2": 1162, "y2": 812 },
+            { "x1": 1166, "y1": 818, "x2": 1290, "y2": 814 }, { "x1": 1291, "y1": 814, "x2": 1294, "y2": 833 },
+            { "x1": 1293, "y1": 836, "x2": 1291, "y2": 863 }, { "x1": 1294, "y1": 866, "x2": 1186, "y2": 871 },
+            { "x1": 1182, "y1": 874, "x2": 1177, "y2": 921 }, { "x1": 1179, "y1": 922, "x2": 1203, "y2": 925 },
+            { "x1": 1205, "y1": 928, "x2": 1197, "y2": 955 }, { "x1": 1200, "y1": 955, "x2": 1188, "y2": 956 },
+            { "x1": 1193, "y1": 966, "x2": 1220, "y2": 991 }, { "x1": 1222, "y1": 990, "x2": 1233, "y2": 989 },
+            { "x1": 1234, "y1": 992, "x2": 1236, "y2": 971 }, { "x1": 1237, "y1": 971, "x2": 1260, "y2": 969 },
+            { "x1": 1259, "y1": 968, "x2": 1336, "y2": 969 }, { "x1": 1335, "y1": 970, "x2": 1337, "y2": 989 },
+            { "x1": 1344, "y1": 991, "x2": 1387, "y2": 951 }, { "x1": 1388, "y1": 957, "x2": 1389, "y2": 836 },
+            { "x1": 1389, "y1": 840, "x2": 1360, "y2": 838 }, { "x1": 1385, "y1": 869, "x2": 1362, "y2": 867 },
+            { "x1": 1362, "y1": 866, "x2": 1358, "y2": 807 }, { "x1": 1361, "y1": 810, "x2": 1398, "y2": 809 },
+            { "x1": 1404, "y1": 804, "x2": 1435, "y2": 800 }, { "x1": 1437, "y1": 803, "x2": 1476, "y2": 837 },
+            { "x1": 1475, "y1": 849, "x2": 1412, "y2": 847 }, { "x1": 1403, "y1": 845, "x2": 1406, "y2": 889 },
+            { "x1": 1404, "y1": 889, "x2": 1500, "y2": 897 }, { "x1": 1532, "y1": 859, "x2": 1504, "y2": 894 },
+            { "x1": 1532, "y1": 862, "x2": 1533, "y2": 823 }, { "x1": 1533, "y1": 822, "x2": 1534, "y2": 720 },
+            { "x1": 1533, "y1": 715, "x2": 1584, "y2": 713 }, { "x1": 1537, "y1": 676, "x2": 1593, "y2": 676 },
+            { "x1": 1593, "y1": 676, "x2": 1594, "y2": 712 }, { "x1": 1537, "y1": 675, "x2": 1533, "y2": 575 },
+            { "x1": 1469, "y1": 676, "x2": 1472, "y2": 720 }, { "x1": 1473, "y1": 720, "x2": 1446, "y2": 755 },
+            { "x1": 1444, "y1": 751, "x2": 1396, "y2": 757 }, { "x1": 1399, "y1": 756, "x2": 1159, "y2": 757 },
+            { "x1": 1159, "y1": 751, "x2": 1158, "y2": 623 }, { "x1": 1159, "y1": 621, "x2": 1144, "y2": 622 },
+            { "x1": 1156, "y1": 649, "x2": 1123, "y2": 649 }, { "x1": 1125, "y1": 655, "x2": 1120, "y2": 595 },
+            { "x1": 1124, "y1": 602, "x2": 1201, "y2": 610 }, { "x1": 1197, "y1": 602, "x2": 1198, "y2": 701 },
+            { "x1": 1203, "y1": 704, "x2": 1364, "y2": 701 }, { "x1": 1363, "y1": 704, "x2": 1401, "y2": 666 },
+            { "x1": 1397, "y1": 658, "x2": 1402, "y2": 517 }, { "x1": 1402, "y1": 517, "x2": 1369, "y2": 515 },
+            { "x1": 1364, "y1": 516, "x2": 1364, "y2": 558 }, { "x1": 1365, "y1": 558, "x2": 1248, "y2": 562 },
+            { "x1": 1251, "y1": 567, "x2": 1246, "y2": 522 }, { "x1": 1244, "y1": 518, "x2": 1203, "y2": 515 },
+            { "x1": 1200, "y1": 515, "x2": 1196, "y2": 556 }, { "x1": 1198, "y1": 556, "x2": 1118, "y2": 548 },
+            { "x1": 1123, "y1": 549, "x2": 1118, "y2": 471 }, { "x1": 1344, "y1": 619, "x2": 1259, "y2": 620 },
+            { "x1": 1260, "y1": 621, "x2": 1259, "y2": 648 }, { "x1": 1259, "y1": 652, "x2": 1343, "y2": 645 },
+            { "x1": 1343, "y1": 649, "x2": 1345, "y2": 630 }, { "x1": 1372, "y1": 398, "x2": 1310, "y2": 462 },
+            { "x1": 1315, "y1": 466, "x2": 1429, "y2": 462 }, { "x1": 1374, "y1": 397, "x2": 1472, "y2": 392 },
+            { "x1": 1470, "y1": 392, "x2": 1473, "y2": 272 }, { "x1": 1475, "y1": 275, "x2": 1456, "y2": 261 },
+            { "x1": 1457, "y1": 264, "x2": 1333, "y2": 273 }, { "x1": 1438, "y1": 464, "x2": 1435, "y2": 453 },
+            { "x1": 1433, "y1": 449, "x2": 1566, "y2": 448 }, { "x1": 1568, "y1": 449, "x2": 1572, "y2": 529 },
+            { "x1": 1569, "y1": 528, "x2": 1480, "y2": 528 }, { "x1": 1477, "y1": 532, "x2": 1471, "y2": 673 },
+            { "x1": 536,  "y1": 570, "x2": 1630, "y2": 565 }, { "x1": 1629, "y1": 572, "x2": 1627, "y2": 512 },
+            { "x1": 1627, "y1": 510, "x2": 1747, "y2": 507 }, { "x1": 1744, "y1": 510, "x2": 1747, "y2": 554 },
+            { "x1": 1745, "y1": 558, "x2": 1826, "y2": 562 }, { "x1": 1891, "y1": 516, "x2": 1834, "y2": 561 },
+            { "x1": 1893, "y1": 514, "x2": 1894, "y2": 416 }, { "x1": 1896, "y1": 435, "x2": 1829, "y2": 373 },
+            { "x1": 1826, "y1": 376, "x2": 1751, "y2": 376 }, { "x1": 1747, "y1": 370, "x2": 1742, "y2": 445 },
+            { "x1": 1742, "y1": 445, "x2": 1631, "y2": 451 }, { "x1": 1626, "y1": 455, "x2": 1624, "y2": 379 },
+            { "x1": 1621, "y1": 405, "x2": 1539, "y2": 398 }, { "x1": 1534, "y1": 404, "x2": 1533, "y2": 256 },
+            { "x1": 1535, "y1": 251, "x2": 1542, "y2": 215 }, { "x1": 1546, "y1": 213, "x2": 1586, "y2": 222 },
+            { "x1": 1589, "y1": 220, "x2": 1586, "y2": 184 }, { "x1": 1586, "y1": 186, "x2": 1493, "y2": 104 },
+            { "x1": 1497, "y1": 102, "x2": 1401, "y2": 101 }, { "x1": 1453, "y1": 110, "x2": 1451, "y2": 172 },
+            { "x1": 1452, "y1": 177, "x2": 1433, "y2": 209 }, { "x1": 1431, "y1": 211, "x2": 1326, "y2": 211 }
+        ];
 
-    // Projektionsfaktor t auf der Geraden berechnen
-    let t = ((cx - x1) * (x2 - x1) + (cy - y1) * (y2 - y1)) / l2;
-    t = Math.max(0, Math.min(1, t)); // Begrenzung auf das Liniensegment
+        const pivotX = 1062;
+        const pivotY = 354;
+        const finalTables = [
+            { cx: pivotX + (917 - pivotX) * 0.71 + 20, cy: pivotY + (218 - pivotY) * 0.77 - 110, radius: 52 * 0.77 },
+            { cx: pivotX + (1208 - pivotX) * 0.71 + 20, cy: pivotY + (218 - pivotY) * 0.77 - 110, radius: 52 * 0.77 },
+            { cx: pivotX + (1062 - pivotX) * 0.71 + 20, cy: pivotY + (354 - pivotY) * 0.77 - 110, radius: 52 * 0.77 },
+            { cx: pivotX + (917 - pivotX) * 0.71 + 20, cy: pivotY + (491 - pivotY) * 0.77 - 110, radius: 52 * 0.77 },
+            { cx: pivotX + (1208 - pivotX) * 0.71 + 20, cy: pivotY + (491 - pivotY) * 0.77 - 110, radius: 52 * 0.77 }
+        ];
 
-    // Koordinaten des nahesten Punktes auf dem Segment
-    const px = x1 + t * (x2 - x1);
-    const py = y1 + t * (y2 - y1);
+        const textures = {};
+        const sources = {
+            map: 'assets/Map.png',
+            player: 'assets/IMG_0964.webp',
+            useBtn: 'assets/use.webp',
+            useSecBtn: 'assets/use_sec.webp',
+            engBtn: 'assets/eng.webp'
+        };
 
-    // Distanz berechnen
-    const dist = Math.sqrt(Math.pow(cx - px, 2) + Math.pow(cy - py, 2));
-    return dist < tolerance;
-}
+        let loadedImages = 0;
+        const totalImages = Object.keys(sources).length;
+        for (let key in sources) {
+            textures[key] = new Image();
+            textures[key].src = sources[key];
+            textures[key].onload = () => {
+                loadedImages++;
+                if (loadedImages === totalImages) {
+                    updateButtonTexture(false);
+                    engineerBtn.style.backgroundImage = `url('${sources.engBtn}')`;
+                }
+            };
+        }
 
-// Click-Handler auf dem Canvas
-canvas.addEventListener('click', (e) => {
-    const rect = canvas.getBoundingClientRect();
-    // Skalierung beachten, falls das Canvas via CSS gestaucht/gestreckt wird
-    const x = Math.round((e.clientX - rect.left) * (canvas.width / rect.width));
-    const y = Math.round((e.clientY - rect.top) * (canvas.height / rect.height));
+        let player = { x: 1060, y: 260, radius: 10, width: 21, height: 27, speed: 4.5, vx: 0, vy: 0, facingRight: true };
+        let camera = { x: 0, y: 0 };
+        let isViewingSecurity = false;
+        let nearSecurity = false;
+        let nearVent = null;
 
-    if (currentMode === 'wall') {
-        // Wand entfernen
-        const initialLength = walls.length;
-        walls = walls.filter(wall => !isClickOnWall(x, y, wall));
-        if(walls.length < initialLength) draw();
-    } 
-    else if (currentMode === 'vent') {
-        // Vent hinzufügen
-        vents.push({ x: x, y: y });
-        draw();
-    } 
-    else if (currentMode === 'remove-vent') {
-        // Vent entfernen (Radius Kollision)
-        const clickRadius = 20;
-        const initialLength = vents.length;
-        vents = vents.filter(vent => {
-            const dist = Math.sqrt(Math.pow(vent.x - x, 2) + Math.pow(vent.y - y, 2));
-            return dist > clickRadius;
+        const keys = {};
+        const joystickZone = document.getElementById('joystick-zone');
+        const joystickKnob = document.getElementById('joystick-knob');
+        const actionBtn = document.getElementById('action-btn');
+        const engineerBtn = document.getElementById('engineer-btn');
+
+        let joystickActive = false;
+        let joystickStartX = 0, joystickStartY = 0;
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        function selectRole(role) {
+            playerRole = role;
+            document.getElementById('role-selection-overlay').style.display = 'none';
+            if (role === 'engineer') {
+                engineerBtn.style.display = 'block';
+            }
+            gameActive = true;
+        }
+
+        function toggleDebugMenu() {
+            debugMenuOpen = !debugMenuOpen;
+            document.getElementById('debug-overlay').style.display = debugMenuOpen ? 'flex' : 'none';
+            if (!debugMenuOpen) {
+                placementActive = false;
+                removalActive = false;
+            }
+        }
+
+        function closeDebugMenu() {
+            debugMenuOpen = false;
+            document.getElementById('debug-overlay').style.display = 'none';
+            placementActive = false;
+            removalActive = false;
+        }
+
+        function startVentPlacement() {
+            currentVentIdInput = document.getElementById('vent-id').value.trim() || "1";
+            currentVentSizeInput = parseInt(document.getElementById('vent-size').value) || 25;
+            placementActive = true;
+            removalActive = false;
+            debugMenuOpen = false;
+            document.getElementById('debug-overlay').style.display = 'none';
+            document.getElementById('debug-status-text').innerText = `Klicke auf die Map, um Vent ID ${currentVentIdInput} zu platzieren.`;
+        }
+
+        function startVentRemoval() {
+            removalActive = true;
+            placementActive = false;
+            debugMenuOpen = false;
+            document.getElementById('debug-overlay').style.display = 'none';
+            document.getElementById('debug-status-text').innerText = "Klicke auf ein Vent auf der Map, um es zu entfernen.";
+        }
+
+        function copyVentsJSON() {
+            const jsonStr = JSON.stringify(vents, null, 4);
+            navigator.clipboard.writeText(jsonStr).then(() => {
+                const statusText = document.getElementById('debug-status-text');
+                const oldText = statusText.innerText;
+                statusText.innerText = "JSON erfolgreich kopiert!";
+                setTimeout(() => { statusText.innerText = oldText; }, 2000);
+            }).catch(err => {
+                console.error("Fehler beim Kopieren: ", err);
+                alert("Kopieren fehlgeschlagen. JSON in Konsole ausgegeben.");
+                console.log(jsonStr);
+            });
+        }
+
+        function handleMapClick(e) {
+            const clientX = e.clientX || (e.touches && e.touches[0].clientX);
+            const clientY = e.clientY || (e.touches && e.touches[0].clientY);
+            if (clientX === undefined || clientY === undefined) return;
+
+            const worldX = clientX - (canvas.width / 2 - player.x);
+            const worldY = clientY - (canvas.height / 2 - player.y);
+
+            if (placementActive) {
+                vents.push({
+                    id: currentVentIdInput,
+                    cx: Math.round(worldX),
+                    cy: Math.round(worldY),
+                    radius: currentVentSizeInput
+                });
+                placementActive = false;
+                document.getElementById('debug-status-text').innerText = `Vent ${currentVentIdInput} platziert bei (${Math.round(worldX)}, ${Math.round(worldY)}).`;
+            } else if (removalActive) {
+                let foundIndex = -1;
+                for (let i = 0; i < vents.length; i++) {
+                    const dx = worldX - vents[i].cx;
+                    const dy = worldY - vents[i].cy;
+                    if (Math.sqrt(dx * dx + dy * dy) <= vents[i].radius + 10) {
+                        foundIndex = i;
+                        break;
+                    }
+                }
+                if (foundIndex !== -1) {
+                    const removed = vents.splice(foundIndex, 1);
+                    document.getElementById('debug-status-text').innerText = `Vent ${removed[0].id} erfolgreich entfernt.`;
+                } else {
+                    document.getElementById('debug-status-text').innerText = "Kein Vent an dieser Position gefunden.";
+                }
+                removalActive = false;
+            }
+        }
+
+        canvas.addEventListener('mousedown', (e) => {
+            if (placementActive || removalActive) {
+                handleMapClick(e);
+            }
         });
-        if(vents.length < initialLength) draw();
-    }
-});
+        canvas.addEventListener('touchstart', (e) => {
+            if (placementActive || removalActive) {
+                handleMapClick(e);
+            }
+        }, { passive: true });
 
-// JSON Export & Clipboard
-function copyVentsJSON() {
-    const jsonString = JSON.stringify(vents, null, 2);
-    navigator.clipboard.writeText(jsonString)
-        .then(() => {
-            alert(`JSON erfolgreich kopiert!\n\n${vents.length} Vents exportiert.`);
-        })
-        .catch(err => {
-            console.error('Fehler beim Kopieren in die Zwischenablage:', err);
-            // Fallback, falls Clipboard API fehlschlägt
-            alert("Fehler beim direkten Kopieren. JSON wurde in der Console ausgegeben.");
-            console.log(jsonString);
+        window.addEventListener('keydown', (e) => { keys[e.code] = true; });
+        window.addEventListener('keyup', (e) => { keys[e.code] = false; });
+
+        joystickZone.addEventListener('touchstart', (e) => {
+            if (isViewingSecurity) return;
+            joystickActive = true;
+            const touch = e.touches[0];
+            const rect = joystickZone.getBoundingClientRect();
+            joystickStartX = rect.left + rect.width / 2;
+            joystickStartY = rect.top + rect.height / 2;
+            handleJoystickMove(touch.clientX, touch.clientY);
+        }, { passive: true });
+
+        joystickZone.addEventListener('touchmove', (e) => {
+            if (!joystickActive || isViewingSecurity) return;
+            const touch = e.touches[0];
+            handleJoystickMove(touch.clientX, touch.clientY);
+        }, { passive: true });
+
+        joystickZone.addEventListener('touchend', () => {
+            joystickActive = false;
+            player.vx = 0;
+            player.vy = 0;
+            joystickKnob.style.transform = `translate(0px, 0px)`;
         });
-}
 
-// Initialer Render
-draw();
-</script>
+        function handleJoystickMove(clientX, clientY) {
+            let dx = clientX - joystickStartX;
+            let dy = clientY - joystickStartY;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            const maxRadius = 40;
 
+            if (distance > maxRadius) {
+                dx = (dx / distance) * maxRadius;
+                dy = (dy / distance) * maxRadius;
+            }
+
+            joystickKnob.style.transform = `translate(${dx}px, ${dy}px)`;
+
+            const angle = Math.atan2(dy, dx);
+            const intensity = Math.min(distance / maxRadius, 1);
+            player.vx = Math.cos(angle) * player.speed * intensity;
+            player.vy = Math.sin(angle) * player.speed * intensity;
+
+            if (player.vx > 0.2) player.facingRight = true;
+            if (player.vx < -0.2) player.facingRight = false;
+        }
+
+        function updateButtonTexture(isNear) {
+            if (isViewingSecurity) {
+                actionBtn.style.backgroundImage = `url('${sources.useSecBtn}')`;
+            } else {
+                actionBtn.style.backgroundImage = `url('${sources.useBtn}')`;
+            }
+            actionBtn.style.opacity = isNear ? '1' : '0.4';
+        }
+
+        function checkInteractions() {
+            if (isViewingSecurity) {
+                nearSecurity = true;
+                updateButtonTexture(true);
+                return;
+            }
+
+            const sec = gameConfig.securityScreen;
+            const distSec = Math.hypot(player.x - sec.cx, player.y - sec.cy);
+            nearSecurity = (distSec <= sec.interactRange);
+
+            nearVent = null;
+            if (playerRole === 'engineer') {
+                for (let v of vents) {
+                    const distV = Math.hypot(player.x - v.cx, player.y - v.cy);
+                    if (distV <= v.radius + 20) {
+                        nearVent = v;
+                        break;
+                    }
+                }
+            }
+
+            updateButtonTexture(nearSecurity);
+
+            if (playerRole === 'engineer') {
+                if (isVenting || nearVent) {
+                    engineerBtn.style.opacity = '1';
+                } else {
+                    engineerBtn.style.opacity = '0.4';
+                }
+            }
+        }
+
+        function triggerAction() {
+            if (nearSecurity) {
+                isViewingSecurity = !isViewingSecurity;
+                updateButtonTexture(true);
+            }
+        }
+
+        function triggerVent() {
+            if (playerRole !== 'engineer') return;
+
+            if (isVenting) {
+                isVenting = false;
+                player.x = currentVentNode.cx;
+                player.y = currentVentNode.cy + 15;
+                currentVentNode = null;
+                activeVentButtons = [];
+            } else if (nearVent) {
+                isVenting = true;
+                currentVentNode = nearVent;
+                player.vx = 0;
+                player.vy = 0;
+                setupVentNavigation();
+            }
+        }
+
+        function setupVentNavigation() {
+            activeVentButtons = [];
+            vents.forEach(v => {
+                if (v !== currentVentNode && v.id === currentVentNode.id) {
+                    activeVentButtons.push(v);
+                }
+            });
+        }
+
+        function navigateToVent(targetVent) {
+            if (!isVenting) return;
+            currentVentNode = targetVent;
+            setupVentNavigation();
+        }
+
+        function handleVentTouch(clientX, clientY) {
+            const camX = canvas.width / 2 - currentVentNode.cx;
+            const camY = canvas.height / 2 - currentVentNode.cy;
+
+            for (let v of activeVentButtons) {
+                const screenX = v.cx + camX;
+                const screenY = v.cy + camY;
+                if (Math.hypot(clientX - screenX, clientY - screenY) <= 25) {
+                    navigateToVent(v);
+                    break;
+                }
+            }
+        }
+
+        actionBtn.addEventListener('touchstart', (e) => { e.stopPropagation(); triggerAction(); }, { passive: false });
+        actionBtn.addEventListener('mousedown', (e) => { e.stopPropagation(); triggerAction(); });
+        engineerBtn.addEventListener('touchstart', (e) => { e.stopPropagation(); triggerVent(); }, { passive: false });
+        engineerBtn.addEventListener('mousedown', (e) => { e.stopPropagation(); triggerVent(); });
+
+        window.addEventListener('touchstart', (e) => {
+            if (isVenting && currentVentNode) {
+                const touch = e.touches[0];
+                handleVentTouch(touch.clientX, touch.clientY);
+            }
+        }, { passive: true });
+
+        window.addEventListener('mousedown', (e) => {
+            if (isVenting && currentVentNode) {
+                handleVentTouch(e.clientX, e.clientY);
+            }
+        });
+
+        function checkWallCollision(newX, newY) {
+            const r = player.radius;
+            
+            for (let line of wallLines) {
+                let x1 = line.x1, y1 = line.y1, x2 = line.x2, y2 = line.y2;
+                let A = newX - x1, B = newY - y1, C = x2 - x1, D = y2 - y1;
+                let dot = A * C + B * D;
+                let lenSq = C * C + D * D;
+                let param = -1;
+                if (lenSq !== 0) param = dot / lenSq;
+
+                let xx, yy;
+                if (param < 0) { xx = x1; yy = y1; }
+                else if (param > 1) { xx = x2; yy = y2; }
+                else { xx = x1 + param * C; yy = y1 + param * D; }
+
+                let dx = newX - xx, dy = newY - yy;
+                let dist = Math.sqrt(dx * dx + dy * dy);
+                if (dist < r + wallThickness / 2) return true;
+            }
+
+            for (let table of finalTables) {
+                if (Math.hypot(newX - table.cx, newY - table.cy) < r + table.radius) return true;
+            }
+
+            return false;
+        }
+
+        function updatePlayerPosition() {
+            if (!joystickActive && gameActive && !isViewingSecurity) {
+                player.vx = 0;
+                player.vy = 0;
+                if (keys['KeyW'] || keys['ArrowUp']) player.vy = -player.speed;
+                if (keys['KeyS'] || keys['ArrowDown']) player.vy = player.speed;
+                if (keys['KeyA'] || keys['ArrowLeft']) { player.vx = -player.speed; player.facingRight = false; }
+                if (keys['KeyD'] || keys['ArrowRight']) { player.vx = player.speed; player.facingRight = true; }
+            }
+
+            if ((player.vx !== 0 || player.vy !== 0) && !isViewingSecurity) {
+                let nextX = player.x + player.vx;
+                let nextY = player.y + player.vy;
+
+                if (!checkWallCollision(nextX, player.y)) player.x = nextX;
+                if (!checkWallCollision(player.x, nextY)) player.y = nextY;
+
+                player.x = Math.max(player.radius, Math.min(mapWidth - player.radius, player.x));
+                player.y = Math.max(player.radius, Math.min(mapHeight - player.radius, player.y));
+            }
+        }
+
+        function isPointInVision(px, py, cam) {
+            let dx = px - cam.x;
+            let dy = py - cam.y;
+            let dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist > cam.range) return false;
+            let angleToPoint = Math.atan2(dy, dx);
+            let diff = angleToPoint - cam.angle;
+            while (diff < -Math.PI) diff += Math.PI * 2;
+            while (diff > Math.PI) diff -= Math.PI * 2;
+            return Math.abs(diff) <= cam.fov / 2;
+        }
+
+        function drawCameraVisionSquare(cam) {
+            ctx.fillStyle = 'rgba(59, 130, 246, 0.12)';
+            ctx.beginPath();
+            ctx.moveTo(cam.x, cam.y);
+            let startAngle = cam.angle - cam.fov / 2;
+            let endAngle = cam.angle + cam.fov / 2;
+            ctx.arc(cam.x, cam.y, cam.range, startAngle, endAngle);
+            ctx.closePath();
+            ctx.fill();
+            
+            ctx.strokeStyle = 'rgba(59, 130, 246, 0.4)';
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+        }
+
+        function drawSecurityView() {
+            ctx.fillStyle = '#111116';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            const gridW = canvas.width / 2;
+            const gridH = canvas.height / 2;
+            const padd = 4;
+
+            gameConfig.cameras.forEach((cam, index) => {
+                let col = index % 2;
+                let row = Math.floor(index / 2);
+                let w = gridW - padd * 2;
+                let h = gridH - padd * 2;
+                let pos = { x: col * gridW + padd, y: row * gridH + padd };
+
+                ctx.save();
+                ctx.beginPath();
+                ctx.rect(pos.x, pos.y, w, h);
+                ctx.clip();
+
+                ctx.fillStyle = '#1c1c24';
+                ctx.fillRect(pos.x, pos.y, w, h);
+
+                ctx.save();
+                ctx.translate(pos.x + w / 2 - cam.x, pos.y + h / 2 - cam.y);
+
+                if (textures.map && textures.map.complete) {
+                    ctx.drawImage(textures.map, 0, 0, mapWidth, mapHeight);
+                }
+
+                drawCameraVisionSquare(cam);
+
+                if (!isVenting && isPointInVision(player.x, player.y, cam)) {
+                    ctx.save();
+                    ctx.translate(player.x, player.y);
+                    if (!player.facingRight) ctx.scale(-1, 1);
+                    if (textures.player && textures.player.complete) {
+                        ctx.drawImage(textures.player, -player.width / 2, -player.height / 2, player.width, player.height);
+                    }
+                    ctx.restore();
+                }
+
+                ctx.restore();
+
+                ctx.strokeStyle = '#3b82f6';
+                ctx.lineWidth = 3;
+                ctx.strokeRect(pos.x, pos.y, w, h);
+
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+                ctx.fillRect(pos.x + 10, pos.y + 10, 185, 30);
+                ctx.fillStyle = '#00ffcc';
+                ctx.font = 'bold 11px monospace';
+                ctx.fillText(`CAM: ${cam.id}`, pos.x + 15, pos.y + 28);
+                ctx.restore();
+            });
+
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+            ctx.fillRect(canvas.width / 2 - 150, canvas.height - 50, 300, 40);
+            ctx.fillStyle = '#ef4444';
+            ctx.font = 'bold 14px monospace';
+            ctx.textAlign = 'center';
+            ctx.fillText("LIVE SECURITY MONITOR", canvas.width / 2, canvas.height - 25);
+            ctx.textAlign = 'left';
+        }
+
+        function drawGame() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            if (isViewingSecurity) {
+                drawSecurityView();
+                return;
+            }
+
+            let camX = canvas.width / 2 - (isVenting ? currentVentNode.cx : player.x);
+            let camY = canvas.height / 2 - (isVenting ? currentVentNode.cy : player.y);
+
+            ctx.save();
+            ctx.translate(camX, camY);
+
+            if (textures.map && textures.map.complete) {
+                ctx.drawImage(textures.map, 0, 0, mapWidth, mapHeight);
+            } else {
+                ctx.fillStyle = '#222';
+                ctx.fillRect(0, 0, mapWidth, mapHeight);
+            }
+
+            if (debugMode) {
+                ctx.strokeStyle = 'rgba(239, 68, 68, 0.6)';
+                ctx.lineWidth = 2;
+                wallLines.forEach(line => {
+                    ctx.beginPath();
+                    ctx.moveTo(line.x1, line.y1);
+                    ctx.lineTo(line.x2, line.y2);
+                    ctx.stroke();
+                });
+
+                ctx.fillStyle = 'rgba(239, 68, 68, 0.2)';
+                ctx.strokeStyle = 'rgba(239, 68, 68, 0.5)';
+                finalTables.forEach(t => {
+                    ctx.beginPath();
+                    ctx.arc(t.cx, t.cy, t.radius, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.stroke();
+                });
+
+                const sec = gameConfig.securityScreen;
+                ctx.fillStyle = 'rgba(59, 130, 246, 0.3)';
+                ctx.beginPath();
+                ctx.arc(sec.cx, sec.cy, sec.radius, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            vents.forEach(v => {
+                ctx.fillStyle = 'rgba(168, 85, 247, 0.4)';
+                ctx.strokeStyle = '#a855f7';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.arc(v.cx, v.cy, v.radius, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+
+                ctx.fillStyle = '#fff';
+                ctx.font = '10px monospace';
+                ctx.textAlign = 'center';
+                ctx.fillText(`V:${v.id}`, v.cx, v.cy + 3);
+                ctx.textAlign = 'left';
+            });
+
+            if (isVenting && currentVentNode) {
+                activeVentButtons.forEach(v => {
+                    ctx.fillStyle = 'rgba(255, 255, 0, 0.6)';
+                    ctx.strokeStyle = '#ffff00';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.arc(v.cx, v.cy, 12, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.stroke();
+
+                    ctx.beginPath();
+                    ctx.strokeStyle = '#ffff00';
+                    ctx.lineWidth = 1.5;
+                    ctx.setLineDash([4, 4]);
+                    ctx.moveTo(currentVentNode.cx, currentVentNode.cy);
+                    ctx.lineTo(v.cx, v.cy);
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+                });
+            }
+
+            if (!isVenting && gameActive) {
+                ctx.save();
+                ctx.translate(player.x, player.y);
+                if (!player.facingRight) {
+                    ctx.scale(-1, 1);
+                }
+                if (textures.player && textures.player.complete) {
+                    ctx.drawImage(textures.player, -player.width / 2, -player.height / 2, player.width, player.height);
+                } else {
+                    ctx.fillStyle = '#ef4444';
+                    ctx.beginPath();
+                    ctx.arc(0, 0, player.radius, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                ctx.restore();
+            }
+
+            ctx.restore();
+        }
+
+        function gameLoop() {
+            if (!isVenting) {
+                updatePlayerPosition();
+            }
+            if (gameActive) {
+                checkInteractions();
+            }
+            drawGame();
+            requestAnimationFrame(gameLoop);
+        }
+
+        requestAnimationFrame(gameLoop);
+    </script>
 </body>
 </html>
