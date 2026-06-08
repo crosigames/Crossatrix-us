@@ -58,7 +58,6 @@
             z-index: 10;
             display: block;
         }
-        /* Erweitertes Debug UI für Mobile & Konfiguration */
         #debug-ui {
             position: absolute;
             top: 10px;
@@ -152,10 +151,10 @@
         
         <div class="debug-section">
             <div><strong>Wähle Element zum Platzieren:</strong></div>
-            <label><input type="radio" name="placement-target" value="cam-0" checked> Cam 1 (Cafeteria)</label>
-            <label><input type="radio" name="placement-target" value="cam-1"> Cam 2 (Weapons)</label>
-            <label><input type="radio" name="placement-target" value="cam-2"> Cam 3 (Navigation)</label>
-            <label><input type="radio" name="placement-target" value="cam-3"> Cam 4 (Corridor)</label>
+            <label><input type="radio" name="placement-target" value="cam-0" checked> Cam 1 (Medbay-Cafeteria)</label>
+            <label><input type="radio" name="placement-target" value="cam-1"> Cam 2 (Security)</label>
+            <label><input type="radio" name="placement-target" value="cam-2"> Cam 3 (Admin)</label>
+            <label><input type="radio" name="placement-target" value="cam-3"> Cam 4 (Navigation Hallway)</label>
             <label><input type="radio" name="placement-target" value="screen"> 🖥️ Security Terminal</label>
             <small style="color:#aaa;">Danach einfach auf die Map tippen.</small>
         </div>
@@ -179,14 +178,47 @@
         const mapHeight = 1080;
         const wallThickness = 15;
 
-        // Haupt-Konfigurations-Objekt
+        // Aktualisierte Konfiguration mit deinen exakten Daten
         let gameConfig = {
-            "securityScreen": { "cx": 300, "cy": 450, "radius": 35, "interactRange": 60 },
+            "securityScreen": {
+                "cx": 587,
+                "cy": 376,
+                "radius": 35,
+                "interactRange": 60
+            },
             "cameras": [
-                { "id": "Cafeteria", "x": 1060, "y": 150, "angle": 1.57, "fov": 1.04, "range": 180 },
-                { "id": "Weapons", "x": 1500, "y": 200, "angle": 3.14, "fov": 1.04, "range": 160 },
-                { "id": "Navigation", "x": 1820, "y": 460, "angle": 3.45, "fov": 1.57, "range": 170 },
-                { "id": "Corridor_Left", "x": 600, "y": 450, "angle": 0, "fov": 1.04, "range": 190 }
+                {
+                    "id": "Medbay-Cafeteria Hallway",
+                    "x": 799,
+                    "y": 208,
+                    "angle": 1.57,
+                    "fov": 1.04,
+                    "range": 180
+                },
+                {
+                    "id": "Security ",
+                    "x": 479,
+                    "y": 470,
+                    "angle": 3.14,
+                    "fov": 1.04,
+                    "range": 160
+                },
+                {
+                    "id": "Admin",
+                    "x": 1138,
+                    "y": 527,
+                    "angle": 3.45,
+                    "fov": 1.57,
+                    "range": 170
+                },
+                {
+                    "id": "Navigation Hallway",
+                    "x": 1653,
+                    "y": 431,
+                    "angle": 0,
+                    "fov": 1.04,
+                    "range": 190
+                }
             ]
         };
 
@@ -240,7 +272,7 @@
             { "x1": 400,  "y1": 533, "x2": 402,  "y2": 635 }, { "x1": 401,  "y1": 637, "x2": 399,  "y2": 665 },
             { "x1": 397,  "y1": 667, "x2": 340,  "y2": 665 }, { "x1": 75,   "y1": 614, "x2": 79,   "y2": 629 },
             { "x1": 337,  "y1": 668, "x2": 338,  "y2": 687 }, { "x1": 339,  "y1": 690, "x2": 475,  "y2": 694 },
-            { "x1": 481,  "y1": 696, "x2": 478,  "y2": 784 }, { "x1": 478,  "y1": 785, "x2": 340,  "y2": 790 },
+            { "x1": 481,  "y1": 696, "x2": 478,  "y2": 784 }, { "x1": 478,  "y1": 785, "x2": 340,  "y0": 790 },
             { "x1": 337,  "y1": 792, "x2": 330,  "y2": 809 }, { "x1": 330,  "y1": 811, "x2": 372,  "y2": 848 },
             { "x1": 375,  "y1": 850, "x2": 520,  "y2": 854 }, { "x1": 523,  "y1": 855, "x2": 525,  "y2": 790 },
             { "x1": 527,  "y1": 784, "x2": 602,  "y2": 784 }, { "x1": 601,  "y1": 791, "x2": 599,  "y2": 901 },
@@ -365,7 +397,6 @@
             }
         }
 
-        // Dynamische Generierung der Input Felder für Namen & Weiten im Debug-Menü
         function buildCamInputFields() {
             const container = document.getElementById('cam-inputs-container');
             container.innerHTML = '';
@@ -380,7 +411,6 @@
                 container.appendChild(row);
             });
 
-            // Event-Listener für Live-Updates der Felder
             container.querySelectorAll('.cam-name').forEach(input => {
                 input.addEventListener('input', e => {
                     let idx = parseInt(e.target.dataset.idx);
@@ -402,7 +432,6 @@
             document.getElementById('debug-json').value = JSON.stringify(gameConfig, null, 4);
         }
 
-        // Pointer/Click Event-Handling für Desktops UND Mobile Screens gleichermaßen
         function handleMapClick(clientX, clientY) {
             if (!debugMode) return;
             
@@ -410,7 +439,6 @@
             let clickX = clientX - rect.left + camera.x;
             let clickY = clientY - rect.top + camera.y;
 
-            // Welches Radio-Button Target ist gerade aktiv?
             const activeTarget = document.querySelector('input[name="placement-target"]:checked').value;
 
             if (activeTarget === 'screen') {
@@ -424,20 +452,16 @@
             syncDebugJSON();
         }
 
-        // Native Event-Abfragen für Klick/Touch auf dem Canvas
         canvas.addEventListener('click', e => {
             if(debugMode) handleMapClick(e.clientX, e.clientY);
         });
         canvas.addEventListener('touchstart', e => {
             if(debugMode && e.touches.length > 0) {
-                // Verhindert Scrolling während der Platzierung im Debug Mode
                 e.preventDefault(); 
                 handleMapClick(e.touches[0].clientX, e.touches[0].clientY);
             }
         }, { passive: false });
 
-
-        // Joystick Logic
         joystickZone.addEventListener('touchstart', e => {
             if (isViewingSecurity || debugMode) return;
             joystickActive = true;
@@ -480,7 +504,6 @@
             }
         });
 
-        // Kollisionen
         function resolveLineCollision(p, line) {
             let dx = line.x2 - line.x1; let dy = line.y2 - line.y1;
             let lenSq = dx * dx + dy * dy; if (lenSq === 0) return;
@@ -555,7 +578,6 @@
             camera.y = Math.max(0, Math.min(mapHeight - canvas.height, camera.y));
         }
 
-        // Zeichnet das geometrisch exakte lila Viereck (Sicht-Trapez)
         function drawCameraVisionSquare(cam) {
             let leftAngle = cam.angle - cam.fov / 2;
             let rightAngle = cam.angle + cam.fov / 2;
@@ -577,11 +599,9 @@
             ctx.fill();
             ctx.stroke();
 
-            // Kamera-Kopf-Punkt
             ctx.fillStyle = '#a855f7';
             ctx.beginPath(); ctx.arc(cam.x, cam.y, 6, 0, Math.PI * 2); ctx.fill();
             
-            // Markiert im Debug Mode die im Radio-Feld selektierte Cam visuell
             if (debugMode) {
                 const activeTarget = document.querySelector('input[name="placement-target"]:checked')?.value;
                 if (activeTarget && activeTarget.startsWith('cam-')) {
@@ -643,9 +663,9 @@
                 ctx.strokeStyle = '#3b82f6'; ctx.lineWidth = 3;
                 ctx.strokeRect(pos.x, pos.y, w, h);
 
-                ctx.fillStyle = 'rgba(0, 0, 0, 0.6)'; ctx.fillRect(pos.x + 10, pos.y + 10, 145, 30);
-                ctx.fillStyle = '#00ffcc'; ctx.font = 'bold 12px monospace';
-                ctx.fillText(`CAM: ${cam.id}`, pos.x + 20, pos.y + 28);
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.6)'; ctx.fillRect(pos.x + 10, pos.y + 10, 185, 30);
+                ctx.fillStyle = '#00ffcc'; ctx.font = 'bold 11px monospace';
+                ctx.fillText(`CAM: ${cam.id}`, pos.x + 15, pos.y + 28);
             });
 
             ctx.fillStyle = 'rgba(0, 0, 0, 0.7)'; ctx.fillRect(canvas.width / 2 - 150, canvas.height - 50, 300, 40);
@@ -672,7 +692,6 @@
 
             gameConfig.cameras.forEach(cam => drawCameraVisionSquare(cam));
 
-            // Terminal
             ctx.fillStyle = nearSecurity ? 'rgba(0, 255, 200, 0.4)' : 'rgba(59, 130, 246, 0.4)';
             ctx.strokeStyle = nearSecurity ? '#00ffcc' : '#3b82f6';
             ctx.lineWidth = 3;
@@ -680,7 +699,6 @@
             ctx.arc(gameConfig.securityScreen.cx, gameConfig.securityScreen.cy, gameConfig.securityScreen.radius, 0, Math.PI * 2);
             ctx.fill(); ctx.stroke();
 
-            // Player
             ctx.save();
             ctx.translate(player.x, player.y);
             if (!player.facingRight) ctx.scale(-1, 1);
