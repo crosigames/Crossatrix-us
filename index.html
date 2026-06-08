@@ -187,7 +187,7 @@
             <input type="number" id="vent-size" class="debug-input" placeholder="Radius" value="25">
             <button class="panel-btn" onclick="startVentPlacement()">Vent platzieren</button>
             <button class="panel-btn" style="border-color:#ef4444" onclick="startVentRemoval()">Vent entfernen</button>
-            <button class="panel-btn" style="border-color:#22c55e" onclick="startWallDrawing()">Wand zeichnen</button>
+            <button class="panel-btn" style="border-color:#22c55e" onclick="startWallDrawing()">Wand ziehen (Linie)</button>
             <button class="panel-btn" style="border-color:#f97316" onclick="startWallRemoval()">Wand entfernen</button>
             <button class="panel-btn" style="border-color:#a855f7" onclick="copyVentsData()">Vents kopieren</button>
             <button class="panel-btn" style="border-color:#a855f7" onclick="copyWallsData()">Wände kopieren</button>
@@ -222,9 +222,10 @@
         let removalActive = false;
         let wallRemovalActive = false;
         let wallDrawingActive = false;
-        let isDrawingWall = false;
-        let lastDrawX = null;
-        let lastDrawY = null;
+        
+        // Logik für Linien-Wände
+        let wallStartPoint = null; 
+        let currentMouseWorldPos = null; 
 
         let vents = []; 
         let currentVentIdInput = "1";
@@ -292,7 +293,7 @@
             { "x1": 276,  "y1": 647, "x2": 275,  "y2": 578 }, { "x1": 280,  "y1": 580, "x2": 335,  "y2": 582 },
             { "x1": 338,  "y1": 583, "x2": 340,  "y2": 531 }, { "x1": 342,  "y1": 528, "x2": 400,  "y2": 528 },
             { "x1": 400,  "y1": 533, "x2": 402,  "y2": 635 }, { "x1": 401,  "y1": 637, "x2": 399,  "y2": 665 },
-            { "x1": 397,  "y1": 667, "x2": 340,  "y2": 665 }, { "x5": 75,   "y1": 614, "x2": 79,   "y2": 629 },
+            { "x1": 397,  "y1": 667, "x2": 340,  "y2": 665 },
             { "x1": 337,  "y1": 668, "x2": 338,  "y2": 687 }, { "x1": 339,  "y1": 690, "x2": 475,  "y2": 694 },
             { "x1": 481,  "y1": 696, "x2": 478,  "y2": 784 }, { "x1": 478,  "y1": 785, "x2": 340,  "y2": 790 },
             { "x1": 337,  "y1": 792, "x2": 330,  "y2": 809 }, { "x1": 330,  "y1": 811, "x2": 372,  "y2": 848 },
@@ -474,7 +475,6 @@
             if (player.vx < -0.2) player.facingRight = false;
         }
 
-        // Action-Buttons Touch Handler
         actionBtn.addEventListener('touchstart', e => {
             e.preventDefault();
             if (nearSecurity) {
@@ -526,9 +526,8 @@
             removalActive = false;
             wallRemovalActive = false;
             wallDrawingActive = false;
-            isDrawingWall = false;
-            lastDrawX = null;
-            lastDrawY = null;
+            wallStartPoint = null;
+            currentMouseWorldPos = null;
             statusText.innerText = "Interaktions-Modus aktiv.";
             statusText.style.color = "#a855f7";
         }
@@ -559,7 +558,7 @@
         function startWallDrawing() {
             resetModes();
             wallDrawingActive = true;
-            statusText.innerText = "Ziehe deinen Finger über den Bildschirm, um Wände zu malen.";
+            statusText.innerText = "1. Klick: Startpunkt | 2. Klick: Endpunkt der Linie setzen.";
             statusText.style.color = "#22c55e";
             toggleDebugMenu();
         }
@@ -575,7 +574,7 @@
         function copyVentsData() {
             const jsonStr = JSON.stringify(vents, null, 4);
             navigator.clipboard.writeText(jsonStr).then(() => {
-                statusText.innerText = "Vents JSON in die Zwischenablage kopiert!";
+                statusText.innerText = "Vents JSON kopiert!";
                 statusText.style.color = "#10b981";
             }).catch(err => {
                 statusText.innerText = "Fehler beim Kopieren.";
@@ -586,7 +585,7 @@
         function copyWallsData() {
             const jsonStr = JSON.stringify(wallLines, null, 4);
             navigator.clipboard.writeText(jsonStr).then(() => {
-                statusText.innerText = "Wände JSON in die Zwischenablage kopiert!";
+                statusText.innerText = "Wände JSON kopiert! (Optimiert)";
                 statusText.style.color = "#10b981";
             }).catch(err => {
                 statusText.innerText = "Fehler beim Kopieren.";
@@ -594,31 +593,45 @@
             });
         }
 
-        // Hilfsfunktion zur Ermittlung der präzisen In-Game-Weltkoordinaten (Fix für den Offset)
+        // Weltkoordinaten-Ermittlung unter Berücksichtigung des Canvas-Offsets und der Kamera
         function getWorldCoordinates(clientX, clientY) {
             const rect = canvas.getBoundingClientRect();
-            
-            // Reale Position auf dem Canvas-Element ermitteln
             const canvasX = clientX - rect.left;
             const canvasY = clientY - rect.top;
-            
-            // Umrechnung in Weltkoordinaten basierend auf der aktuellen Kameraposition
             const worldX = canvasX + camera.x;
             const worldY = canvasY + camera.y;
-            
             return { x: Math.round(worldX), y: Math.round(worldY) };
         }
 
-        // Event-Listener für Interaktionen auf der Map (Touch & Maus)
+        // Pointer Handler für präzises Linien-Zeichnen
         function handlePointerDown(clientX, clientY) {
             if (!placementActive && !removalActive && !wallRemovalActive && !wallDrawingActive) return;
             
             const coords = getWorldCoordinates(clientX, clientY);
 
             if (wallDrawingActive) {
-                isDrawingWall = true;
-                lastDrawX = coords.x;
-                lastDrawY = coords.y;
+                if (!wallStartPoint) {
+                    // Erster Klick: Setze den Linien-Startpunkt
+                    wallStartPoint = { x: coords.x, y: coords.y };
+                    currentMouseWorldPos = { x: coords.x, y: coords.y };
+                    statusText.innerText = "Startpunkt gesetzt! Klicke erneut für den Endpunkt.";
+                    statusText.style.color = "#3b82f6";
+                } else {
+                    // Zweiter Klick: Berechne Distanz und speichere eine einzelne fertige Linie ab
+                    const dist = Math.sqrt((coords.x - wallStartPoint.x)**2 + (coords.y - wallStartPoint.y)**2);
+                    if (dist > 5) {
+                        wallLines.push({
+                            x1: wallStartPoint.x,
+                            y1: wallStartPoint.y,
+                            x2: coords.x,
+                            y2: coords.y
+                        });
+                    }
+                    // Bereit für die nächste Linie
+                    wallStartPoint = null;
+                    statusText.innerText = "Linie gespeichert! Setze den nächsten Startpunkt.";
+                    statusText.style.color = "#22c55e";
+                }
             } else if (placementActive) {
                 vents.push({
                     id: currentVentIdInput,
@@ -634,7 +647,7 @@
                 });
                 resetModes();
             } else if (wallRemovalActive) {
-                const maxClickDistance = 20; 
+                const maxClickDistance = 25; 
                 wallLines = wallLines.filter(line => {
                     const x1 = line.x1; const y1 = line.y1;
                     const x2 = line.x2; const y2 = line.y2;
@@ -656,38 +669,16 @@
         }
 
         function handlePointerMove(clientX, clientY) {
-            if (!wallDrawingActive || !isDrawingWall) return;
-            
-            const coords = getWorldCoordinates(clientX, clientY);
-            
-            // Verhindert das Hinzufügen von winzigen 0-Pixel-Linien
-            const dist = Math.sqrt((coords.x - lastDrawX)**2 + (coords.y - lastDrawY)**2);
-            if (dist > 5) {
-                wallLines.push({
-                    x1: lastDrawX,
-                    y1: lastDrawY,
-                    x2: coords.x,
-                    y2: coords.y
-                });
-                lastDrawX = coords.x;
-                lastDrawY = coords.y;
-            }
-        }
-
-        function handlePointerUp() {
-            if (isDrawingWall) {
-                isDrawingWall = false;
-                lastDrawX = null;
-                lastDrawY = null;
+            if (wallDrawingActive && wallStartPoint) {
+                currentMouseWorldPos = getWorldCoordinates(clientX, clientY);
             }
         }
 
         // Click & Mouse Listeners
         canvas.addEventListener('mousedown', e => handlePointerDown(e.clientX, e.clientY));
         canvas.addEventListener('mousemove', e => handlePointerMove(e.clientX, e.clientY));
-        window.addEventListener('mouseup', handlePointerUp);
 
-        // Touch Listeners für mobiles Zeichnen / Platzieren
+        // Touch Listeners für mobile Geräte
         canvas.addEventListener('touchstart', e => {
             if (e.touches.length > 0) {
                 handlePointerDown(e.touches[0].clientX, e.touches[0].clientY);
@@ -698,7 +689,6 @@
                 handlePointerMove(e.touches[0].clientX, e.touches[0].clientY);
             }
         });
-        window.addEventListener('touchend', handlePointerUp);
 
         function createVentNavigationButtons(ventNode) {
             removeVentNavigationButtons();
@@ -740,10 +730,8 @@
             let collided = false;
 
             for (let line of wallLines) {
-                const x1 = line.x1;
-                const y1 = line.y1;
-                const x2 = line.x2;
-                const y2 = line.y2;
+                const x1 = line.x1; const y1 = line.y1;
+                const x2 = line.x2; const y2 = line.y2;
 
                 const l2 = (x2 - x1)**2 + (y2 - y1)**2;
                 if (l2 === 0) continue;
@@ -832,30 +820,16 @@
 
             if (!isVenting && !isViewingSecurity) {
                 player.x += player.vx;
-                
                 let wallPush = getWallCollisionVector(player.x, player.y, player.radius);
-                if (wallPush) {
-                    player.x += wallPush.x;
-                    player.y += wallPush.y;
-                }
+                if (wallPush) { player.x += wallPush.x; player.y += wallPush.y; }
                 let tablePush = getTableCollisionVector(player.x, player.y, player.radius);
-                if (tablePush) {
-                    player.x += tablePush.x;
-                    player.y += tablePush.y;
-                }
+                if (tablePush) { player.x += tablePush.x; player.y += tablePush.y; }
 
                 player.y += player.vy;
-                
                 wallPush = getWallCollisionVector(player.x, player.y, player.radius);
-                if (wallPush) {
-                    player.x += wallPush.x;
-                    player.y += wallPush.y;
-                }
+                if (wallPush) { player.x += wallPush.x; player.y += wallPush.y; }
                 tablePush = getTableCollisionVector(player.x, player.y, player.radius);
-                if (tablePush) {
-                    player.x += tablePush.x;
-                    player.y += tablePush.y;
-                }
+                if (tablePush) { player.x += tablePush.x; player.y += tablePush.y; }
 
                 player.x = Math.max(player.radius, Math.min(mapWidth - player.radius, player.x));
                 player.y = Math.max(player.radius, Math.min(mapHeight - player.radius, player.y));
@@ -866,26 +840,16 @@
 
             const secDist = Math.sqrt((player.x - gameConfig.securityScreen.cx)**2 + (player.y - gameConfig.securityScreen.cy)**2);
             if (secDist < gameConfig.securityScreen.interactRange) {
-                if (!nearSecurity) {
-                    nearSecurity = true;
-                    updateButtonTexture(true);
-                }
+                if (!nearSecurity) { nearSecurity = true; updateButtonTexture(true); }
             } else {
-                if (nearSecurity) {
-                    nearSecurity = false;
-                    isViewingSecurity = false;
-                    updateButtonTexture(false);
-                }
+                if (nearSecurity) { nearSecurity = false; isViewingSecurity = false; updateButtonTexture(false); }
             }
 
             nearVent = null;
             if (playerRole === 'engineer' && !isVenting) {
                 for (let vent of vents) {
                     const vDist = Math.sqrt((player.x - vent.x)**2 + (player.y - vent.y)**2);
-                    if (vDist < vent.radius + 15) {
-                        nearVent = vent;
-                        break;
-                    }
+                    if (vDist < vent.radius + 15) { nearVent = vent; break; }
                 }
             }
             if (playerRole === 'engineer') {
@@ -923,22 +887,13 @@
                     }
                     ctx.restore();
 
-                    ctx.strokeStyle = '#3b82f6';
-                    ctx.lineWidth = 3;
-                    ctx.strokeRect(pos.x, pos.y, w, h);
-
-                    ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
-                    ctx.fillRect(pos.x + 10, pos.y + 10, 185, 30);
-                    ctx.fillStyle = '#00ffcc';
-                    ctx.font = 'bold 11px monospace';
-                    ctx.fillText(`CAM: ${cam.id}`, pos.x + 15, pos.y + 28);
+                    ctx.strokeStyle = '#3b82f6'; ctx.lineWidth = 3; ctx.strokeRect(pos.x, pos.y, w, h);
+                    ctx.fillStyle = 'rgba(0, 0, 0, 0.6)'; ctx.fillRect(pos.x + 10, pos.y + 10, 185, 30);
+                    ctx.fillStyle = '#00ffcc'; ctx.font = 'bold 11px monospace'; ctx.fillText(`CAM: ${cam.id}`, pos.x + 15, pos.y + 28);
                 });
 
-                ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-                ctx.fillRect(canvas.width / 2 - 150, canvas.height - 50, 300, 40);
-                ctx.fillStyle = '#ef4444';
-                ctx.font = 'bold 14px monospace';
-                ctx.textAlign = 'center';
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.7)'; ctx.fillRect(canvas.width / 2 - 150, canvas.height - 50, 300, 40);
+                ctx.fillStyle = '#ef4444'; ctx.font = 'bold 14px monospace'; ctx.textAlign = 'center';
                 ctx.fillText("LIVE CAMERA FEEDS - TOUCH USE TO EXIT", canvas.width / 2, canvas.height - 25);
                 ctx.textAlign = 'left';
 
@@ -946,91 +901,67 @@
                 ctx.save();
                 ctx.translate(-camera.x, -camera.y);
 
-                if (textures.map && textures.map.complete) {
-                    ctx.drawImage(textures.map, 0, 0, mapWidth, mapHeight);
-                }
+                if (textures.map && textures.map.complete) ctx.drawImage(textures.map, 0, 0, mapWidth, mapHeight);
 
                 vents.forEach(vent => {
-                    ctx.fillStyle = 'rgba(50, 50, 50, 0.8)';
-                    ctx.strokeStyle = '#a855f7';
-                    ctx.lineWidth = 3;
-                    ctx.beginPath();
-                    ctx.arc(vent.x, vent.y, vent.radius, 0, Math.PI * 2);
-                    ctx.fill();
-                    ctx.stroke();
-                    
-                    if (debugMode) {
-                        ctx.fillStyle = '#fff';
-                        ctx.font = '10px monospace';
-                        ctx.fillText(`ID:${vent.id}`, vent.x - 12, vent.y + 4);
-                    }
+                    ctx.fillStyle = 'rgba(50, 50, 50, 0.8)'; ctx.strokeStyle = '#a855f7'; ctx.lineWidth = 3;
+                    ctx.beginPath(); ctx.arc(vent.x, vent.y, vent.radius, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+                    if (debugMode) { ctx.fillStyle = '#fff'; ctx.font = '10px monospace'; ctx.fillText(`ID:${vent.id}`, vent.x - 12, vent.y + 4); }
                 });
 
                 if (debugMode) {
                     ctx.fillStyle = 'rgba(59, 130, 246, 0.3)';
-                    ctx.beginPath();
-                    ctx.arc(gameConfig.securityScreen.cx, gameConfig.securityScreen.cy, gameConfig.securityScreen.radius, 0, Math.PI * 2);
+                    ctx.beginPath(); ctx.arc(gameConfig.securityScreen.cx, gameConfig.securityScreen.cy, gameConfig.securityScreen.radius, 0, Math.PI * 2);
                     ctx.fill();
                 }
 
                 gameConfig.cameras.forEach(cam => {
                     drawCameraVisionSquare(cam);
-                    ctx.fillStyle = '#ef4444';
-                    ctx.beginPath();
-                    ctx.arc(cam.x, cam.y, 6, 0, Math.PI * 2);
-                    ctx.fill();
+                    ctx.fillStyle = '#ef4444'; ctx.beginPath(); ctx.arc(cam.x, cam.y, 6, 0, Math.PI * 2); ctx.fill();
                 });
 
                 if (debugMode) {
                     finalTables.forEach(table => {
-                        ctx.fillStyle = 'rgba(234, 179, 8, 0.2)';
-                        ctx.strokeStyle = '#eab308';
-                        ctx.lineWidth = 1.5;
-                        ctx.beginPath();
-                        ctx.arc(table.cx, table.cy, table.radius, 0, Math.PI * 2);
-                        ctx.fill();
-                        ctx.stroke();
+                        ctx.fillStyle = 'rgba(234, 179, 8, 0.2)'; ctx.strokeStyle = '#eab308'; ctx.lineWidth = 1.5;
+                        ctx.beginPath(); ctx.arc(table.cx, table.cy, table.radius, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
                     });
                 }
 
+                // Gezeichnete Wände rendern
                 if (debugMode) {
                     ctx.strokeStyle = 'rgba(239, 68, 68, 0.7)';
                     ctx.lineWidth = wallThickness;
                     ctx.lineCap = 'round';
                     wallLines.forEach(line => {
-                        ctx.beginPath();
-                        ctx.moveTo(line.x1, line.y1);
-                        ctx.lineTo(line.x2, line.y2);
-                        ctx.stroke();
+                        ctx.beginPath(); ctx.moveTo(line.x1, line.y1); ctx.lineTo(line.x2, line.y2); ctx.stroke();
                     });
+
+                    // Live-Vorschau der zu ziehenden Wand-Linie zeichnen
+                    if (wallDrawingActive && wallStartPoint && currentMouseWorldPos) {
+                        ctx.strokeStyle = 'rgba(59, 130, 246, 0.8)';
+                        ctx.lineWidth = wallThickness;
+                        ctx.beginPath();
+                        ctx.moveTo(wallStartPoint.x, wallStartPoint.y);
+                        ctx.lineTo(currentMouseWorldPos.x, currentMouseWorldPos.y);
+                        ctx.stroke();
+                        
+                        // Kleine Orientierungspunkte an Start und Ende
+                        ctx.fillStyle = '#3b82f6';
+                        ctx.beginPath(); ctx.arc(wallStartPoint.x, wallStartPoint.y, 5, 0, Math.PI*2); ctx.fill();
+                        ctx.beginPath(); ctx.arc(currentMouseWorldPos.x, currentMouseWorldPos.y, 5, 0, Math.PI*2); ctx.fill();
+                    }
                 }
 
                 if (!isVenting) {
                     ctx.save();
                     ctx.translate(player.x, player.y);
-                    
-                    if (debugMode) {
-                        ctx.fillStyle = 'rgba(16, 185, 129, 0.4)';
-                        ctx.beginPath();
-                        ctx.arc(0, 0, player.radius, 0, Math.PI * 2);
-                        ctx.fill();
-                    }
-
-                    if (!player.facingRight) {
-                        ctx.scale(-1, 1);
-                    }
+                    if (debugMode) { ctx.fillStyle = 'rgba(16, 185, 129, 0.4)'; ctx.beginPath(); ctx.arc(0, 0, player.radius, 0, Math.PI * 2); ctx.fill(); }
+                    if (!player.facingRight) ctx.scale(-1, 1);
 
                     if (textures.player && textures.player.complete) {
-                        ctx.drawImage(
-                            textures.player,
-                            -player.width / 2,
-                            -player.height / 2,
-                            player.width,
-                            player.height
-                        );
+                        ctx.drawImage(textures.player, -player.width / 2, -player.height / 2, player.width, player.height);
                     } else {
-                        ctx.fillStyle = '#ef4444';
-                        ctx.fillRect(-player.width / 2, -player.height / 2, player.width, player.height);
+                        ctx.fillStyle = '#ef4444'; ctx.fillRect(-player.width / 2, -player.height / 2, player.width, player.height);
                     }
                     ctx.restore();
                 }
