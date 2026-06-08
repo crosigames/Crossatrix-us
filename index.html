@@ -25,7 +25,6 @@
             height: 100vh;
         }
         
-        /* Neuer permanenter Debug-Trigger-Button */
         #debug-trigger-btn {
             position: absolute;
             top: 15px;
@@ -97,7 +96,6 @@
             transition: opacity 0.2s;
         }
         
-        /* Overlays */
         #role-selection-overlay, #debug-overlay {
             position: absolute;
             top: 0;
@@ -124,9 +122,12 @@
         }
         .role-buttons, .debug-controls {
             display: flex;
-            gap: 20px;
+            gap: 15px;
             flex-direction: row;
             align-items: center;
+            flex-wrap: wrap;
+            justify-content: center;
+            max-width: 90%;
         }
         .panel-btn {
             background: #1e1e24;
@@ -157,11 +158,18 @@
             text-align: center;
             font-family: monospace;
         }
+        #debug-status-text {
+            margin-top: 15px;
+            font-family: monospace;
+            font-size: 13px;
+            color: #a855f7;
+            font-weight: bold;
+        }
     </style>
 </head>
 <body>
 
-    <button id="debug-trigger-btn" onclick="openDebug()">DEBUG</button>
+    <button id="debug-trigger-btn" onclick="toggleDebugMenu()">DEBUG</button>
 
     <div id="role-selection-overlay">
         <h1 class="window-title">WÄHLE DEINE ROLLE</h1>
@@ -172,14 +180,15 @@
     </div>
 
     <div id="debug-overlay">
-        <h1 class="window-title">VENT DESIGNER MODE</h1>
+        <h1 class="window-title">DEBUG / VENT DEV MODE</h1>
         <div class="debug-controls">
             <input type="text" id="vent-id" class="debug-input" placeholder="ID (z.B. 1)" value="1">
             <input type="number" id="vent-size" class="debug-input" placeholder="Radius" value="25">
             <button class="panel-btn" onclick="startVentPlacement()">Vent platzieren</button>
-            <button class="panel-btn" style="border-color:#ef4444" onclick="closeDebug()">Schließen</button>
+            <button class="panel-btn" style="border-color:#ef4444" onclick="startVentRemoval()">Vent entfernen</button>
+            <button class="panel-btn" style="border-color:#10b981" onclick="closeDebugMenu()">Schließen</button>
         </div>
-        <p style="margin-top:15px; font-family:monospace; font-size:12px; color:#9ca3af;">Klicke nach dem Setup auf den Bildschirm, um das Vent zu setzen.</p>
+        <p id="debug-status-text">Hitboxen sind permanent aktiv.</p>
     </div>
 
     <canvas id="gameCanvas"></canvas>
@@ -201,17 +210,20 @@
 
         let playerRole = null; 
         let gameActive = false;
-        let debugMode = false;
+        
+        // Hitboxen standardmäßig dauerhaft anzeigen
+        let debugMode = true; 
+        let debugMenuOpen = false;
         let placementActive = false;
+        let removalActive = false;
 
-        // Vent-Datenstrukturen
         let vents = []; 
         let currentVentIdInput = "1";
         let currentVentSizeInput = 25;
         
         let isVenting = false;
         let currentVentNode = null;
-        let activeVentButtons = []; // Regionen für die Richtungspfeile im Vent
+        let activeVentButtons = []; 
 
         let gameConfig = {
             "securityScreen": { "cx": 587, "cy": 376, "radius": 35, "interactRange": 60 },
@@ -383,24 +395,27 @@
             actionBtn.style.backgroundImage = `url('${isSec ? sources.useSecBtn : sources.useBtn}')`;
         }
 
-        // Tastatur 'm' bleibt als Backup aktiv
         window.addEventListener('keydown', e => {
             if (!gameActive) return;
-            if (e.key.toLowerCase() === 'm') openDebug();
+            if (e.key.toLowerCase() === 'm') toggleDebugMenu();
             keys[e.key.toLowerCase()] = true;
         });
         window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
 
-        function openDebug() {
-            // Nur öffnen, wenn die Rollenauswahl vorbei ist
+        function toggleDebugMenu() {
             if (!gameActive) return;
-            debugMode = true;
-            document.getElementById('debug-overlay').style.display = 'flex';
+            debugMenuOpen = !debugMenuOpen;
+            document.getElementById('debug-overlay').style.display = debugMenuOpen ? 'flex' : 'none';
+            if (debugMenuOpen) {
+                placementActive = false;
+                removalActive = false;
+            }
         }
 
-        function closeDebug() {
-            debugMode = false;
+        function closeDebugMenu() {
+            debugMenuOpen = false;
             placementActive = false;
+            removalActive = false;
             document.getElementById('debug-overlay').style.display = 'none';
         }
 
@@ -408,6 +423,15 @@
             currentVentIdInput = document.getElementById('vent-id').value || "1";
             currentVentSizeInput = parseInt(document.getElementById('vent-size').value) || 25;
             placementActive = true;
+            removalActive = false;
+            debugMenuOpen = false;
+            document.getElementById('debug-overlay').style.display = 'none';
+        }
+
+        function startVentRemoval() {
+            removalActive = true;
+            placementActive = false;
+            debugMenuOpen = false;
             document.getElementById('debug-overlay').style.display = 'none';
         }
 
@@ -432,6 +456,7 @@
             let clientX = e.touches ? e.touches[0].clientX : e.clientX;
             let clientY = e.touches ? e.touches[0].clientY : e.clientY;
 
+            // Navigation innerhalb der Vent-Verbindung
             if (isVenting) {
                 for (let btn of activeVentButtons) {
                     let dx = clientX - btn.screenX;
@@ -446,20 +471,32 @@
                 }
             }
 
-            if (debugMode && placementActive) {
-                let mapX = clientX + camera.x;
-                let mapY = clientY + camera.y;
+            let mapX = clientX + camera.x;
+            let mapY = clientY + camera.y;
 
+            // Logik: Vent hinzufügen
+            if (placementActive) {
                 vents.push({
                     id: currentVentIdInput,
                     x: mapX,
                     y: mapY,
                     radius: currentVentSizeInput
                 });
-
                 placementActive = false;
-                debugMode = false;
-                console.log(`Vent platziert bei X: ${mapX}, Y: ${mapY} mit ID: ${currentVentIdInput}`);
+                console.log(`Vent platziert bei X: ${mapX}, Y: ${mapY}`);
+            } 
+            // Logik: Vent entfernen
+            else if (removalActive) {
+                let initialLength = vents.length;
+                // Filtert alle Vents heraus, die im Klickradius liegen
+                vents = vents.filter(v => {
+                    let dist = Math.sqrt((mapX - v.x) ** 2 + (mapY - v.y) ** 2);
+                    return dist > v.radius;
+                });
+                if (vents.length < initialLength) {
+                    console.log("Vent erfolgreich entfernt.");
+                }
+                removalActive = false;
             }
         }
 
@@ -502,7 +539,6 @@
             if (nearSecurity) {
                 isViewingSecurity = !isViewingSecurity;
                 joystickZone.style.display = isViewingSecurity ? 'none' : 'flex';
-                // Debug-Button in der Überwachungsansicht ausblenden
                 document.getElementById('debug-trigger-btn').style.display = isViewingSecurity ? 'none' : 'block';
                 
                 if (playerRole === 'engineer') {
@@ -672,12 +708,52 @@
                 ctx.fillStyle = '#1e1e24'; ctx.fillRect(0, 0, mapWidth, mapHeight);
             }
 
+            // PERMANENTE HITBOXEN-ANZEIGE WENN debugMode === true
+            if (debugMode) {
+                // 1. Wände zeichnen
+                ctx.strokeStyle = 'rgba(239, 68, 68, 0.8)';
+                ctx.lineWidth = wallThickness;
+                ctx.lineCap = 'round';
+                wallLines.forEach(line => {
+                    ctx.beginPath();
+                    ctx.moveTo(line.x1, line.y1);
+                    ctx.lineTo(line.x2, line.y2);
+                    ctx.stroke();
+                });
+
+                // 2. Cafeteria Tische zeichnen
+                ctx.fillStyle = 'rgba(59, 130, 246, 0.4)';
+                ctx.strokeStyle = 'rgba(59, 130, 246, 0.8)';
+                ctx.lineWidth = 2;
+                finalTables.forEach(table => {
+                    ctx.beginPath();
+                    ctx.arc(table.cx, table.cy, table.radius, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.stroke();
+                });
+
+                // 3. Security Screen Trigger-Zone zeichnen
+                ctx.fillStyle = 'rgba(16, 185, 129, 0.3)';
+                ctx.strokeStyle = 'rgba(16, 185, 129, 0.7)';
+                ctx.beginPath();
+                ctx.arc(gameConfig.securityScreen.cx, gameConfig.securityScreen.cy, gameConfig.securityScreen.radius + gameConfig.securityScreen.interactRange, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+                
+                // Kleiner innerer Punkt für die exakte Position
+                ctx.fillStyle = '#10b981';
+                ctx.beginPath();
+                ctx.arc(gameConfig.securityScreen.cx, gameConfig.securityScreen.cy, gameConfig.securityScreen.radius, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            // Vents zeichnen
             vents.forEach(v => {
                 ctx.beginPath();
                 ctx.arc(v.x, v.y, v.radius, 0, Math.PI * 2);
                 if (debugMode) {
-                    ctx.strokeStyle = '#ef4444'; ctx.lineWidth = 2; ctx.stroke();
-                    ctx.fillStyle = 'rgba(239, 68, 68, 0.2)'; ctx.fill();
+                    ctx.strokeStyle = '#a855f7'; ctx.lineWidth = 2; ctx.stroke();
+                    ctx.fillStyle = 'rgba(168, 85, 247, 0.2)'; ctx.fill();
                     ctx.fillStyle = '#fff'; ctx.font = '12px monospace';
                     ctx.fillText(`ID: ${v.id}`, v.x - 12, v.y + 4);
                 } else {
@@ -685,6 +761,7 @@
                 }
             });
 
+            // Spieler zeichnen
             if (!isVenting) {
                 ctx.save();
                 ctx.translate(player.x, player.y);
@@ -693,6 +770,15 @@
                     ctx.drawImage(textures.player, -player.width / 2, -player.height / 2, player.width, player.height);
                 } else {
                     ctx.fillStyle = '#da2222'; ctx.fillRect(-player.width / 2, -player.height / 2, player.width, player.height);
+                }
+                
+                // Spieler Hitbox Kreis (falls debugMode aktiv)
+                if (debugMode) {
+                    ctx.strokeStyle = '#fff';
+                    ctx.lineWidth = 1.5;
+                    ctx.beginPath();
+                    ctx.arc(0, 0, player.radius, 0, Math.PI * 2);
+                    ctx.stroke();
                 }
                 ctx.restore();
             }
