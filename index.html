@@ -24,6 +24,29 @@
             width: 100vw;
             height: 100vh;
         }
+        
+        /* Neuer permanenter Debug-Trigger-Button */
+        #debug-trigger-btn {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            background: rgba(30, 30, 36, 0.7);
+            color: #ef4444;
+            border: 1.5px solid #ef4444;
+            padding: 6px 12px;
+            font-size: 11px;
+            font-weight: bold;
+            font-family: monospace;
+            border-radius: 4px;
+            z-index: 50;
+            cursor: pointer;
+            letter-spacing: 1px;
+        }
+        #debug-trigger-btn:active {
+            background: #ef4444;
+            color: #000;
+        }
+
         #joystick-zone {
             position: absolute;
             bottom: 40px;
@@ -70,9 +93,10 @@
             touch-action: none;
             z-index: 10;
             display: none;
-            opacity: 0.4; /* Standardmäßig ausgeblendet/semi-transparent */
+            opacity: 0.4;
             transition: opacity 0.2s;
         }
+        
         /* Overlays */
         #role-selection-overlay, #debug-overlay {
             position: absolute;
@@ -89,7 +113,7 @@
             color: #fff;
         }
         #debug-overlay {
-            background: rgba(11, 11, 14, 0.9);
+            background: rgba(11, 11, 14, 0.95);
             display: none;
         }
         .window-title {
@@ -136,6 +160,8 @@
     </style>
 </head>
 <body>
+
+    <button id="debug-trigger-btn" onclick="openDebug()">DEBUG</button>
 
     <div id="role-selection-overlay">
         <h1 class="window-title">WÄHLE DEINE ROLLE</h1>
@@ -357,24 +383,17 @@
             actionBtn.style.backgroundImage = `url('${isSec ? sources.useSecBtn : sources.useBtn}')`;
         }
 
-        // Trigger für Debug-Menü über Tastatur ('m') oder Volume-Up-Simulation im Web
+        // Tastatur 'm' bleibt als Backup aktiv
         window.addEventListener('keydown', e => {
             if (!gameActive) return;
-            if (e.key.toLowerCase() === 'm') {
-                openDebug();
-            }
+            if (e.key.toLowerCase() === 'm') openDebug();
             keys[e.key.toLowerCase()] = true;
         });
         window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
 
-        // Diskreter Listener für Mobile: Volume Up Keycode abfangen (wo möglich)
-        window.addEventListener('keydown', e => {
-            if (e.keyCode === 24) { // Volume Up Keycode auf vielen Android-Geräten im WebView Context
-                openDebug();
-            }
-        });
-
         function openDebug() {
+            // Nur öffnen, wenn die Rollenauswahl vorbei ist
+            if (!gameActive) return;
             debugMode = true;
             document.getElementById('debug-overlay').style.display = 'flex';
         }
@@ -401,7 +420,6 @@
             gameActive = true;
         }
 
-        // Touch/Click Handling auf dem Canvas (Sowohl für Platzierung als auch Vent-Navi)
         canvas.addEventListener('touchstart', handleCanvasClick);
         canvas.addEventListener('mousedown', (e) => {
             if ('ontouchstart' in window) return;
@@ -414,13 +432,11 @@
             let clientX = e.touches ? e.touches[0].clientX : e.clientX;
             let clientY = e.touches ? e.touches[0].clientY : e.clientY;
 
-            // 1. Klick im Vent-Modus prüfen (Klick auf Mini-Navi-Buttons)
             if (isVenting) {
                 for (let btn of activeVentButtons) {
                     let dx = clientX - btn.screenX;
                     let dy = clientY - btn.screenY;
                     if (Math.sqrt(dx*dx + dy*dy) <= btn.radius) {
-                        // Zu Partner-Vent teleportieren
                         currentVentNode = btn.targetVent;
                         player.x = currentVentNode.x;
                         player.y = currentVentNode.y;
@@ -430,7 +446,6 @@
                 }
             }
 
-            // 2. Klick im Platzierungsmodus des Debuggers
             if (debugMode && placementActive) {
                 let mapX = clientX + camera.x;
                 let mapY = clientY + camera.y;
@@ -487,6 +502,9 @@
             if (nearSecurity) {
                 isViewingSecurity = !isViewingSecurity;
                 joystickZone.style.display = isViewingSecurity ? 'none' : 'flex';
+                // Debug-Button in der Überwachungsansicht ausblenden
+                document.getElementById('debug-trigger-btn').style.display = isViewingSecurity ? 'none' : 'block';
+                
                 if (playerRole === 'engineer') {
                     engineerBtn.style.display = isViewingSecurity ? 'none' : 'block';
                 }
@@ -494,20 +512,17 @@
             }
         });
 
-        // Engineer Button Interaktion (Rein/Raus aus Vents)
         engineerBtn.addEventListener('touchstart', (e) => {
             e.preventDefault();
             if (!gameActive || isViewingSecurity || playerRole !== 'engineer') return;
             
             if (isVenting) {
-                // Aus Vent austreten
                 isVenting = false;
                 joystickZone.style.display = 'flex';
                 actionBtn.style.display = 'block';
                 currentVentNode = null;
                 activeVentButtons = [];
             } else if (nearVent) {
-                // In Vent eintreten
                 isVenting = true;
                 currentVentNode = nearVent;
                 player.x = currentVentNode.x;
@@ -519,12 +534,10 @@
             }
         });
 
-        // Berechnet die Positionen der Mini-Use-Buttons um den Vent herum basierend auf verbundenen Partnern
         function recalculateVentButtons() {
             activeVentButtons = [];
             if (!currentVentNode) return;
 
-            // Finde alle Vents mit der gleichen ID (außer sich selbst)
             let partners = vents.filter(v => v.id === currentVentNode.id && v !== currentVentNode);
             
             partners.forEach(partner => {
@@ -532,7 +545,6 @@
                 let dy = partner.y - currentVentNode.y;
                 let angle = Math.atan2(dy, dx);
 
-                // Platziere den Mini-Button im Abstand von 45 Pixeln in Richtung des Partners
                 let buttonDist = 45; 
                 activeVentButtons.push({
                     relX: Math.cos(angle) * buttonDist,
@@ -575,13 +587,13 @@
                 if (keys['e'] || keys['escape']) {
                     isViewingSecurity = false;
                     joystickZone.style.display = 'flex';
+                    document.getElementById('debug-trigger-btn').style.display = 'block';
                     if (playerRole === 'engineer') engineerBtn.style.display = 'block';
                     keys['e'] = false; keys['escape'] = false;
                 }
                 return;
             }
 
-            // Normale Fortbewegung blockieren, wenn man im Vent sitzt
             if (!isVenting) {
                 if (keys['w'] || keys['arrowup']) player.vy = -player.speed;
                 else if (keys['s'] || keys['arrowdown']) player.vy = player.speed;
@@ -604,7 +616,6 @@
                 if (player.x > mapWidth) player.x = mapWidth; if (player.y > mapHeight) player.y = mapHeight;
             }
 
-            // Security Proximity Check
             let distToSec = Math.sqrt((player.x - gameConfig.securityScreen.cx) ** 2 + (player.y - gameConfig.securityScreen.cy) ** 2);
             let currentlyNearSec = distToSec <= (player.radius + gameConfig.securityScreen.interactRange);
             if (currentlyNearSec !== nearSecurity) {
@@ -612,7 +623,6 @@
                 updateButtonTexture(nearSecurity);
             }
 
-            // Vent Proximity Check (Nur für Engineer relevant)
             if (playerRole === 'engineer' && !isVenting) {
                 let closestVent = null;
                 let minDist = Infinity;
@@ -626,18 +636,16 @@
                 nearVent = closestVent;
                 engineerBtn.style.opacity = nearVent ? "1.0" : "0.4";
             } else if (isVenting) {
-                engineerBtn.style.opacity = "1.0"; // Voll sichtbar, wenn bereits im Vent sitzend
+                engineerBtn.style.opacity = "1.0";
             } else {
                 engineerBtn.style.opacity = "0.4";
             }
 
-            // Kamera-Fokus berechnen
             camera.x = player.x - canvas.width / 2;
             camera.y = player.y - canvas.height / 2;
             camera.x = Math.max(0, Math.min(mapWidth - canvas.width, camera.x));
             camera.y = Math.max(0, Math.min(mapHeight - canvas.height, camera.y));
 
-            // Konvertiere die relativen Vent-Button Koordinaten ins Screen-Space für Klickabfragen
             if (isVenting && currentVentNode) {
                 activeVentButtons.forEach(btn => {
                     btn.screenX = (currentVentNode.x + btn.relX) - camera.x;
@@ -658,14 +666,12 @@
             ctx.save();
             ctx.translate(-camera.x, -camera.y);
 
-            // Hintergrund-Map
             if (textures.map && textures.map.complete) {
                 ctx.drawImage(textures.map, 0, 0, mapWidth, mapHeight);
             } else {
                 ctx.fillStyle = '#1e1e24'; ctx.fillRect(0, 0, mapWidth, mapHeight);
             }
 
-            // Vents auf die Map zeichnen (Unsichtbar im Normalbetrieb, umrandet im Debugging)
             vents.forEach(v => {
                 ctx.beginPath();
                 ctx.arc(v.x, v.y, v.radius, 0, Math.PI * 2);
@@ -675,12 +681,10 @@
                     ctx.fillStyle = '#fff'; ctx.font = '12px monospace';
                     ctx.fillText(`ID: ${v.id}`, v.x - 12, v.y + 4);
                 } else {
-                    // Normales Spiel: Vents bleiben unsichtbar (oder nutze hier deine Asset-Grafik, falls vorhanden)
                     ctx.fillStyle = 'rgba(255, 255, 255, 0.01)'; ctx.fill(); 
                 }
             });
 
-            // Spieler zeichnen (Ausblenden, wenn im Vent)
             if (!isVenting) {
                 ctx.save();
                 ctx.translate(player.x, player.y);
@@ -693,19 +697,17 @@
                 ctx.restore();
             }
 
-            ctx.restore(); // Kamera-Translation zurücksetzen
+            ctx.restore();
 
-            // Mini-Use-Navigationsbuttons über die Map rendern, wenn im Vent
             if (isVenting && currentVentNode) {
                 activeVentButtons.forEach(btn => {
                     ctx.save();
                     ctx.translate(btn.screenX, btn.screenY);
-                    ctx.rotate(btn.angle + Math.PI / 2); // Textur in Richtung Partner drehen
+                    ctx.rotate(btn.angle + Math.PI / 2);
 
                     if (textures.useBtn && textures.useBtn.complete) {
                         ctx.drawImage(textures.useBtn, -btn.radius, -btn.radius, btn.radius * 2, btn.radius * 2);
                     } else {
-                        // Fallback-Grafik Pfeil
                         ctx.fillStyle = '#3b82f6'; ctx.beginPath(); ctx.arc(0, 0, btn.radius, 0, Math.PI*2); ctx.fill();
                         ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(0, -8); ctx.lineTo(-6, 2); ctx.lineTo(6, 2); ctx.closePath(); ctx.fillStyle = '#fff'; ctx.fill();
                     }
@@ -714,7 +716,6 @@
             }
         }
 
-        // Unverändertes Kamerasystem für den Monitor
         function drawCameraVisionSquare(cam) {
             let leftAngle = cam.angle - cam.fov / 2; let rightAngle = cam.angle + cam.fov / 2;
             let farLeftX = cam.x + Math.cos(leftAngle) * cam.range; let farLeftY = cam.y + Math.sin(leftAngle) * cam.range;
@@ -735,7 +736,7 @@
             const padding = 20; const w = (canvas.width - padding * 3) / 2; const h = (canvas.height - padding * 3) / 2;
             const gridPositions = [
                 { x: padding, y: padding }, { x: padding * 2 + w, y: padding },
-                { x: padding, y: padding * 2 + h }, { x: padding * 2 + w, y: padding * 2 + h }
+                { x: padding * 2 + h, y: padding }, { x: padding * 2 + w, y: padding * 2 + h }
             ];
             gameConfig.cameras.forEach((cam, i) => {
                 let pos = gridPositions[i]; ctx.save(); ctx.beginPath(); ctx.rect(pos.x, pos.y, w, h); ctx.clip();
