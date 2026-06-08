@@ -162,8 +162,9 @@
             margin-top: 15px;
             font-family: monospace;
             font-size: 13px;
-            color: #a855f7;
+            color: #ef4444;
             font-weight: bold;
+            letter-spacing: 0.5px;
         }
     </style>
 </head>
@@ -180,15 +181,16 @@
     </div>
 
     <div id="debug-overlay">
-        <h1 class="window-title">DEBUG / VENT DEV MODE</h1>
+        <h1 class="window-title">DEBUG / DEV MODE</h1>
         <div class="debug-controls">
             <input type="text" id="vent-id" class="debug-input" placeholder="ID (z.B. 1)" value="1">
             <input type="number" id="vent-size" class="debug-input" placeholder="Radius" value="25">
             <button class="panel-btn" onclick="startVentPlacement()">Vent platzieren</button>
             <button class="panel-btn" style="border-color:#ef4444" onclick="startVentRemoval()">Vent entfernen</button>
+            <button class="panel-btn" style="border-color:#f97316" onclick="startWallRemoval()">Wand entfernen</button>
             <button class="panel-btn" style="border-color:#10b981" onclick="closeDebugMenu()">Schließen</button>
         </div>
-        <p id="debug-status-text">Hitboxen sind permanent aktiv.</p>
+        <p id="debug-status-text">Interaktions-Modus aktiv.</p>
     </div>
 
     <canvas id="gameCanvas"></canvas>
@@ -215,6 +217,7 @@
         let debugMenuOpen = false;
         let placementActive = false;
         let removalActive = false;
+        let wallRemovalActive = false;
 
         let vents = []; 
         let currentVentIdInput = "1";
@@ -234,7 +237,7 @@
             ]
         };
 
-        const wallLines = [
+        let wallLines = [
             { "x1": 1206, "y1": 34,  "x2": 1333, "y2": 165 }, { "x1": 1326, "y1": 146, "x2": 1324, "y2": 215 },
             { "x1": 1198, "y1": 35,  "x2": 901,  "y2": 33  }, { "x1": 944,  "y1": 32,  "x2": 866,  "y2": 109 },
             { "x1": 859,  "y1": 211, "x2": 860,  "y2": 86  }, { "x1": 857,  "y1": 270, "x2": 857,  "y2": 360 },
@@ -392,6 +395,7 @@
         const joystickKnob = document.getElementById('joystick-knob');
         const actionBtn = document.getElementById('action-btn');
         const engineerBtn = document.getElementById('engineer-btn');
+        const statusText = document.getElementById('debug-status-text');
         
         let joystickActive = false;
         let joystickStartX = 0, joystickStartY = 0;
@@ -510,29 +514,47 @@
             document.getElementById('debug-overlay').style.display = debugMenuOpen ? 'flex' : 'none';
         }
 
+        function resetModes() {
+            placementActive = false;
+            removalActive = false;
+            wallRemovalActive = false;
+            statusText.innerText = "Interaktions-Modus aktiv.";
+            statusText.style.color = "#a855f7";
+        }
+
         function closeDebugMenu() {
             debugMenuOpen = false;
             document.getElementById('debug-overlay').style.display = 'none';
-            placementActive = false;
-            removalActive = false;
         }
 
         function startVentPlacement() {
+            resetModes();
             placementActive = true;
-            removalActive = false;
             currentVentIdInput = document.getElementById('vent-id').value || "1";
             currentVentSizeInput = parseInt(document.getElementById('vent-size').value) || 25;
+            statusText.innerText = "Klicke auf die Map, um ein Vent zu platzieren.";
+            statusText.style.color = "#10b981";
             toggleDebugMenu();
         }
 
         function startVentRemoval() {
+            resetModes();
             removalActive = true;
-            placementActive = false;
+            statusText.innerText = "Klicke auf ein Vent, um es zu entfernen.";
+            statusText.style.color = "#ef4444";
+            toggleDebugMenu();
+        }
+
+        function startWallRemoval() {
+            resetModes();
+            wallRemovalActive = true;
+            statusText.innerText = "Klicke nah an eine rote Wand-Hitbox, um sie zu löschen.";
+            statusText.style.color = "#f97316";
             toggleDebugMenu();
         }
 
         canvas.addEventListener('click', e => {
-            if (!debugMenuOpen && !placementActive && !removalActive) return;
+            if (!placementActive && !removalActive && !wallRemovalActive) return;
             
             const rect = canvas.getBoundingClientRect();
             const clickX = e.clientX - rect.left;
@@ -548,13 +570,33 @@
                     y: worldY,
                     radius: currentVentSizeInput
                 });
-                placementActive = false;
+                resetModes();
             } else if (removalActive) {
                 vents = vents.filter(v => {
                     const dist = Math.sqrt((v.x - worldX)**2 + (v.y - worldY)**2);
                     return dist > v.radius;
                 });
-                removalActive = false;
+                resetModes();
+            } else if (wallRemovalActive) {
+                const maxClickDistance = 20; // Toleranz-Radius um die Linie herum
+                
+                wallLines = wallLines.filter(line => {
+                    const x1 = line.x1; const y1 = line.y1;
+                    const x2 = line.x2; const y2 = line.y2;
+                    
+                    const l2 = (x2 - x1)**2 + (y2 - y1)**2;
+                    if (l2 === 0) return true;
+                    
+                    let t = ((worldX - x1) * (x2 - x1) + (worldY - y1) * (y2 - y1)) / l2;
+                    t = Math.max(0, Math.min(1, t));
+                    
+                    const closestX = x1 + t * (x2 - x1);
+                    const closestY = y1 + t * (y2 - y1);
+                    
+                    const dist = Math.sqrt((worldX - closestX)**2 + (worldY - closestY)**2);
+                    return dist > maxClickDistance;
+                });
+                resetModes();
             }
         });
 
@@ -621,11 +663,9 @@
                 if (dist < minDist) {
                     collided = true;
                     const overlap = minDist - dist;
-                    // Verhindere Division durch Null bei exaktem Treffpunkt
                     const nx = dist > 0 ? dx / dist : 0;
                     const ny = dist > 0 ? dy / dist : 1;
 
-                    // Bei Wänden lösen wir direkt auf das stärkste Overlap auf
                     if (overlap > maxOverlap) {
                         maxOverlap = overlap;
                         minPushX = nx * overlap;
@@ -693,26 +733,21 @@
             }
 
             if (!isVenting && !isViewingSecurity) {
-                // Schritt 1: Temporäre Bewegung auf X-Achse anwenden
                 player.x += player.vx;
                 
-                // Sofortiges Rausdrücken falls Kollision mit Wänden
                 let wallPush = getWallCollisionVector(player.x, player.y, player.radius);
                 if (wallPush) {
                     player.x += wallPush.x;
                     player.y += wallPush.y;
                 }
-                // Sofortiges Rausdrücken falls Kollision mit Tischen
                 let tablePush = getTableCollisionVector(player.x, player.y, player.radius);
                 if (tablePush) {
                     player.x += tablePush.x;
                     player.y += tablePush.y;
                 }
 
-                // Schritt 2: Temporäre Bewegung auf Y-Achse anwenden
                 player.y += player.vy;
                 
-                // Erneutes Rausdrücken für die Y-Bewegung
                 wallPush = getWallCollisionVector(player.x, player.y, player.radius);
                 if (wallPush) {
                     player.x += wallPush.x;
@@ -724,7 +759,6 @@
                     player.y += tablePush.y;
                 }
 
-                // Spielfeldgrenzen einhalten
                 player.x = Math.max(player.radius, Math.min(mapWidth - player.radius, player.x));
                 player.y = Math.max(player.radius, Math.min(mapHeight - player.radius, player.y));
             }
