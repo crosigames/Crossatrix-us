@@ -187,6 +187,7 @@
             <input type="number" id="vent-size" class="debug-input" placeholder="Radius" value="25">
             <button class="panel-btn" onclick="startVentPlacement()">Vent platzieren</button>
             <button class="panel-btn" style="border-color:#ef4444" onclick="startVentRemoval()">Vent entfernen</button>
+            <button class="panel-btn" style="border-color:#22c55e" onclick="startWallDrawing()">Wand zeichnen</button>
             <button class="panel-btn" style="border-color:#f97316" onclick="startWallRemoval()">Wand entfernen</button>
             <button class="panel-btn" style="border-color:#a855f7" onclick="copyVentsData()">Vents kopieren</button>
             <button class="panel-btn" style="border-color:#a855f7" onclick="copyWallsData()">Wände kopieren</button>
@@ -220,6 +221,10 @@
         let placementActive = false;
         let removalActive = false;
         let wallRemovalActive = false;
+        let wallDrawingActive = false;
+        let isDrawingWall = false;
+        let lastDrawX = null;
+        let lastDrawY = null;
 
         let vents = []; 
         let currentVentIdInput = "1";
@@ -287,7 +292,7 @@
             { "x1": 276,  "y1": 647, "x2": 275,  "y2": 578 }, { "x1": 280,  "y1": 580, "x2": 335,  "y2": 582 },
             { "x1": 338,  "y1": 583, "x2": 340,  "y2": 531 }, { "x1": 342,  "y1": 528, "x2": 400,  "y2": 528 },
             { "x1": 400,  "y1": 533, "x2": 402,  "y2": 635 }, { "x1": 401,  "y1": 637, "x2": 399,  "y2": 665 },
-            { "x1": 397,  "y1": 667, "x2": 340,  "y2": 665 }, { "x1": 75,   "y1": 614, "x2": 79,   "y2": 629 },
+            { "x1": 397,  "y1": 667, "x2": 340,  "y2": 665 }, { "x5": 75,   "y1": 614, "x2": 79,   "y2": 629 },
             { "x1": 337,  "y1": 668, "x2": 338,  "y2": 687 }, { "x1": 339,  "y1": 690, "x2": 475,  "y2": 694 },
             { "x1": 481,  "y1": 696, "x2": 478,  "y2": 784 }, { "x1": 478,  "y1": 785, "x2": 340,  "y2": 790 },
             { "x1": 337,  "y1": 792, "x2": 330,  "y2": 809 }, { "x1": 330,  "y1": 811, "x2": 372,  "y2": 848 },
@@ -520,6 +525,10 @@
             placementActive = false;
             removalActive = false;
             wallRemovalActive = false;
+            wallDrawingActive = false;
+            isDrawingWall = false;
+            lastDrawX = null;
+            lastDrawY = null;
             statusText.innerText = "Interaktions-Modus aktiv.";
             statusText.style.color = "#a855f7";
         }
@@ -544,6 +553,14 @@
             removalActive = true;
             statusText.innerText = "Klicke auf ein Vent, um es zu entfernen.";
             statusText.style.color = "#ef4444";
+            toggleDebugMenu();
+        }
+
+        function startWallDrawing() {
+            resetModes();
+            wallDrawingActive = true;
+            statusText.innerText = "Ziehe deinen Finger über den Bildschirm, um Wände zu malen.";
+            statusText.style.color = "#22c55e";
             toggleDebugMenu();
         }
 
@@ -577,33 +594,47 @@
             });
         }
 
-        canvas.addEventListener('click', e => {
-            if (!placementActive && !removalActive && !wallRemovalActive) return;
-            
+        // Hilfsfunktion zur Ermittlung der präzisen In-Game-Weltkoordinaten (Fix für den Offset)
+        function getWorldCoordinates(clientX, clientY) {
             const rect = canvas.getBoundingClientRect();
-            const clickX = e.clientX - rect.left;
-            const clickY = e.clientY - rect.top;
             
-            const worldX = clickX - (canvas.width / 2 - player.x);
-            const worldY = clickY - (canvas.height / 2 - player.y);
+            // Reale Position auf dem Canvas-Element ermitteln
+            const canvasX = clientX - rect.left;
+            const canvasY = clientY - rect.top;
+            
+            // Umrechnung in Weltkoordinaten basierend auf der aktuellen Kameraposition
+            const worldX = canvasX + camera.x;
+            const worldY = canvasY + camera.y;
+            
+            return { x: Math.round(worldX), y: Math.round(worldY) };
+        }
 
-            if (placementActive) {
+        // Event-Listener für Interaktionen auf der Map (Touch & Maus)
+        function handlePointerDown(clientX, clientY) {
+            if (!placementActive && !removalActive && !wallRemovalActive && !wallDrawingActive) return;
+            
+            const coords = getWorldCoordinates(clientX, clientY);
+
+            if (wallDrawingActive) {
+                isDrawingWall = true;
+                lastDrawX = coords.x;
+                lastDrawY = coords.y;
+            } else if (placementActive) {
                 vents.push({
                     id: currentVentIdInput,
-                    x: Math.round(worldX),
-                    y: Math.round(worldY),
+                    x: coords.x,
+                    y: coords.y,
                     radius: currentVentSizeInput
                 });
                 resetModes();
             } else if (removalActive) {
                 vents = vents.filter(v => {
-                    const dist = Math.sqrt((v.x - worldX)**2 + (v.y - worldY)**2);
+                    const dist = Math.sqrt((v.x - coords.x)**2 + (v.y - coords.y)**2);
                     return dist > v.radius;
                 });
                 resetModes();
             } else if (wallRemovalActive) {
                 const maxClickDistance = 20; 
-                
                 wallLines = wallLines.filter(line => {
                     const x1 = line.x1; const y1 = line.y1;
                     const x2 = line.x2; const y2 = line.y2;
@@ -611,18 +642,63 @@
                     const l2 = (x2 - x1)**2 + (y2 - y1)**2;
                     if (l2 === 0) return true;
                     
-                    let t = ((worldX - x1) * (x2 - x1) + (worldY - y1) * (y2 - y1)) / l2;
+                    let t = ((coords.x - x1) * (x2 - x1) + (coords.y - y1) * (y2 - y1)) / l2;
                     t = Math.max(0, Math.min(1, t));
                     
                     const closestX = x1 + t * (x2 - x1);
                     const closestY = y1 + t * (y2 - y1);
                     
-                    const dist = Math.sqrt((worldX - closestX)**2 + (worldY - closestY)**2);
+                    const dist = Math.sqrt((coords.x - closestX)**2 + (coords.y - closestY)**2);
                     return dist > maxClickDistance;
                 });
                 resetModes();
             }
+        }
+
+        function handlePointerMove(clientX, clientY) {
+            if (!wallDrawingActive || !isDrawingWall) return;
+            
+            const coords = getWorldCoordinates(clientX, clientY);
+            
+            // Verhindert das Hinzufügen von winzigen 0-Pixel-Linien
+            const dist = Math.sqrt((coords.x - lastDrawX)**2 + (coords.y - lastDrawY)**2);
+            if (dist > 5) {
+                wallLines.push({
+                    x1: lastDrawX,
+                    y1: lastDrawY,
+                    x2: coords.x,
+                    y2: coords.y
+                });
+                lastDrawX = coords.x;
+                lastDrawY = coords.y;
+            }
+        }
+
+        function handlePointerUp() {
+            if (isDrawingWall) {
+                isDrawingWall = false;
+                lastDrawX = null;
+                lastDrawY = null;
+            }
+        }
+
+        // Click & Mouse Listeners
+        canvas.addEventListener('mousedown', e => handlePointerDown(e.clientX, e.clientY));
+        canvas.addEventListener('mousemove', e => handlePointerMove(e.clientX, e.clientY));
+        window.addEventListener('mouseup', handlePointerUp);
+
+        // Touch Listeners für mobiles Zeichnen / Platzieren
+        canvas.addEventListener('touchstart', e => {
+            if (e.touches.length > 0) {
+                handlePointerDown(e.touches[0].clientX, e.touches[0].clientY);
+            }
         });
+        canvas.addEventListener('touchmove', e => {
+            if (e.touches.length > 0) {
+                handlePointerMove(e.touches[0].clientX, e.touches[0].clientY);
+            }
+        });
+        window.addEventListener('touchend', handlePointerUp);
 
         function createVentNavigationButtons(ventNode) {
             removeVentNavigationButtons();
