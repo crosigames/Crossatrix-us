@@ -153,31 +153,31 @@
         let playerRole = null;
         let gameActive = false;
         
+        // debugMode auf false setzen, damit die kreisrunden Hitboxen unsichtbar bleiben
         let debugMode = false;
 
-        // Fest eingebaute Vents aus deiner Liste
+        // Fest platzierte Vents aus deiner Konfiguration
         let vents = [
             { "id": "1", "x": 1287, "y": 305, "radius": 40 },
             { "id": "1", "x": 1495, "y": 559, "radius": 40 },
             { "id": "1", "x": 1222, "y": 690, "radius": 40 },
             { "id": "2", "x": 1508, "y": 884, "radius": 40 },
-            { "id": "2", "x": 1729, "y": 612, "radius": 40 },
-            { "id": "2", "x": 1618, "y": 427, "radius": 40 },
-            { "id": "3", "x": 1058, "y": 855, "radius": 40 },
-            { "id": "3", "x": 845, "y": 822, "radius": 40 },
-            { "id": "3", "x": 673, "y": 811, "radius": 40 },
-            { "id": "4", "x": 560, "y": 637, "radius": 40 },
-            { "id": "4", "x": 361, "y": 643, "radius": 40 },
-            { "id": "4", "x": 218, "y": 579, "radius": 40 },
-            { "id": "5", "x": 312, "y": 317, "radius": 40 },
-            { "id": "5", "x": 429, "y": 182, "radius": 40 },
-            { "id": "5", "x": 753, "y": 240, "radius": 40 }
+            { "id": "2", "x": 1766, "y": 530, "radius": 40 },
+            { "id": "3", "x": 1769, "y": 416, "radius": 40 },
+            { "id": "3", "x": 1466, "y": 149, "radius": 40 },
+            { "id": "4", "x": 689, "y": 443, "radius": 40 },
+            { "id": "4", "x": 610, "y": 575, "radius": 40 },
+            { "id": "4", "x": 718, "y": 617, "radius": 40 },
+            { "id": "5", "x": 284, "y": 576, "radius": 40 },
+            { "id": "5", "x": -27, "y": 929, "radius": 40 },
+            { "id": "5", "x": 508, "y": 863, "radius": 40 },
+            { "id": "5", "x": 502, "y": 164, "radius": 40 }
         ]; 
         
         let isVenting = false;
         let currentVentNode = null;
         let activeVentButtons = [];
-
+        
         let gameConfig = {
             "securityScreen": { "cx": 587, "cy": 376, "radius": 35, "interactRange": 60 },
             "cameras": [
@@ -220,153 +220,83 @@
             { "x1": 770,  "y1": 794, "x2": 766,  "y2": 851 }, { "x1": 769,  "y1": 853, "x2": 904,  "y2": 850 },
             { "x1": 904,  "y1": 845, "x2": 901,  "y2": 684 }, { "x1": 904,  "y1": 678, "x2": 902,  "y2": 706 },
             { "x1": 913,  "y1": 727, "x2": 1005, "y2": 646 }, { "x1": 1013, "y1": 645, "x2": 1058, "y2": 649 },
-            { "x1": 1059, "y1": 644, "x2": 1059, "y2": 475 }, { "x1": 62,   "y1": 930, "x2": 34,   "y2": 916 },
-            { "x1": 855,  "y1": 214, "x2": 523,  "y2": 207 }, { "x1": 525,  "y1": 213, "x2": 522,  "y2": 164 },
-            { "x1": 514,  "y1": 156, "x2": 377,  "y2": 156 }, { "x1": 381,  "y1": 160, "x2": 348,  "y2": 183 },
-            { "x1": 353,  "y1": 190, "x2": 476,  "y2": 197 }, { "x1": 477,  "y1": 197, "x2": 479,  "y2": 301 },
-            { "x1": 478,  "y1": 293, "x2": 335,  "y2": 292 }, { "x1": 333,  "y1": 293, "x2": 329,  "y2": 343 },
-            { "x1": 332,  "y1": 342, "x2": 402,  "y2": 351 }, { "x1": 406,  "y1": 365, "x2": 402,  "y2": 476 },
-            { "x1": 401,  "y1": 482, "x2": 356,  "y2": 481 }, { "x1": 350,  "y1": 484, "x2": 344,  "y2": 393 },
-            { "x1": 343,  "y1": 416, "x2": 281,  "y2": 414 }, { "x1": 281,  "y1": 421, "x2": 279,  "y2": 324 },
-            { "x1": 280,  "y1": 330, "x2": 272,  "y2": 329 }, { "x1": 280,  "y1": 353, "x2": 241,  "y2": 348 },
-            { "x1": 241,  "y1": 353, "x2": 188,  "y2": 396 }, { "x1": 183,  "y1": 398, "x2": 183,  "y2": 414 },
-            { "x1": 184,  "y1": 416, "x2": 237,  "y2": 414 }, { "x1": 240,  "y1": 416, "x2": 241,  "y2": 529 },
-            { "x1": 243,  "y1": 533, "x2": 199,  "y2": 533 }, { "x1": 198,  "y1": 534, "x2": 197,  "y2": 614 },
-            { "x1": 198,  "y1": 620, "x2": 236,  "y2": 646 }, { "x1": 243,  "y1": 651, "x2": 275,  "y2": 644 },
-            { "x1": 276,  "y1": 647, "x2": 275,  "y2": 578 }, { "x1": 280,  "y1": 580, "x2": 335,  "y2": 582 },
-            { "x1": 338,  "y1": 583, "x2": 340,  "y2": 531 }, { "x1": 342,  "y1": 528, "x2": 400,  "y2": 528 },
-            { "x1": 400,  "y1": 533, "x2": 402,  "y2": 635 }, { "x1": 401,  "y1": 637, "x2": 399,  "y2": 665 },
-            { "x1": 397,  "y1": 667, "x2": 340,  "y2": 665 }, { "x1": 75,   "y1": 614, "x2": 79,   "y2": 629 },
-            { "x1": 337,  "y1": 668, "x2": 338,  "y2": 687 }, { "x1": 339,  "y1": 690, "x2": 475,  "y2": 694 },
-            { "x1": 481,  "y1": 696, "x2": 478,  "y2": 784 }, { "x1": 478,  "y1": 785, "x2": 340,  "y2": 790 },
-            { "x1": 337,  "y1": 792, "x2": 330,  "y2": 809 }, { "x1": 330,  "y1": 811, "x2": 372,  "y2": 848 },
-            { "x1": 375,  "y1": 850, "x2": 520,  "y2": 854 }, { "x1": 523,  "y1": 855, "x2": 525,  "y2": 790 },
-            { "x1": 527,  "y1": 784, "x2": 602,  "y2": 784 }, { "x1": 601,  "y1": 791, "x2": 599,  "y2": 901 },
-            { "x1": 603,  "y1": 899, "x2": 905,  "y2": 901 }, { "x1": 901,  "y1": 900, "x2": 993,  "y2": 1001 },
-            { "x1": 991,  "y1": 1000, "x2": 1160, "y2": 1000 }, { "x1": 1166, "y1": 1001, "x2": 1162, "y2": 812 },
-            { "x1": 1166, "y1": 818, "x2": 1290, "y2": 814 }, { "x1": 1291, "y1": 814, "x2": 1294, "y2": 833 },
-            { "x1": 1293, "y1": 836, "x2": 1291, "y2": 863 }, { "x1": 1294, "y1": 866, "x2": 1186, "y2": 871 },
-            { "x1": 1182, "y1": 874, "x2": 1177, "y2": 921 }, { "x1": 1179, "y1": 922, "x2": 1203, "y2": 925 },
-            { "x1": 1205, "y1": 928, "x2": 1197, "y2": 955 }, { "x1": 1200, "y1": 955, "x2": 1188, "y2": 956 },
-            { "x1": 1193, "y1": 966, "x2": 1220, "y2": 991 }, { "x1": 1222, "y1": 990, "x2": 1233, "y2": 989 },
-            { "x1": 1234, "y1": 992, "x2": 1236, "y2": 971 }, { "x1": 1237, "y1": 971, "x2": 1260, "y2": 969 },
-            { "x1": 1259, "y1": 968, "x2": 1336, "y2": 969 }, { "x1": 1335, "y1": 970, "x2": 1337, "y2": 989 },
-            { "x1": 1344, "y1": 991, "x2": 1387, "y2": 951 }, { "x1": 1388, "y1": 957, "x2": 1389, "y2": 836 },
-            { "x1": 1389, "y1": 840, "x2": 1360, "y2": 838 }, { "x1": 1385, "y1": 869, "x2": 1362, "y2": 867 },
-            { "x1": 1362, "y1": 866, "x2": 1358, "y2": 807 }, { "x1": 1361, "y1": 810, "x2": 1398, "y2": 809 },
-            { "x1": 1404, "y1": 804, "x2": 1435, "y2": 800 }, { "x1": 1437, "y1": 803, "x2": 1476, "y2": 837 },
-            { "x1": 1475, "y1": 849, "x2": 1412, "y2": 847 }, { "x1": 1403, "y1": 845, "x2": 1406, "y2": 889 },
-            { "x1": 1404, "y1": 889, "x2": 1500, "y2": 897 }, { "x1": 1532, "y1": 859, "x2": 1504, "y2": 894 },
-            { "x1": 1532, "y1": 862, "x2": 1533, "y2": 823 }, { "x1": 1533, "y1": 822, "x2": 1534, "y2": 720 },
-            { "x1": 1533, "y1": 715, "x2": 1584, "y2": 713 }, { "x1": 1537, "y1": 676, "x2": 1593, "y2": 676 },
-            { "x1": 1593, "y1": 676, "x2": 1594, "y2": 712 }, { "x1": 1537, "y1": 675, "x2": 1533, "y2": 575 },
-            { "x1": 1469, "y1": 676, "x2": 1472, "y2": 720 }, { "x1": 1473, "y1": 720, "x2": 1446, "y2": 755 },
-            { "x1": 1444, "y1": 751, "x2": 1396, "y2": 757 }, { "x1": 1399, "y1": 756, "x2": 1159, "y2": 757 },
-            { "x1": 1159, "y1": 751, "x2": 1158, "y2": 623 }, { "x1": 1159, "y1": 621, "x2": 1144, "y2": 622 },
-            { "x1": 1156, "y1": 649, "x2": 1123, "y2": 649 }, { "x1": 1125, "y1": 655, "x2": 1120, "y2": 595 },
-            { "x1": 1124, "y1": 602, "x2": 1201, "y2": 610 }, { "x1": 1197, "y1": 602, "x2": 1198, "y2": 701 },
-            { "x1": 1203, "y1": 704, "x2": 1364, "y2": 701 }, { "x1": 1363, "y1": 704, "x2": 1401, "y2": 666 },
-            { "x1": 1397, "y1": 658, "x2": 1402, "y2": 517 }, { "x1": 1402, "y1": 517, "x2": 1369, "y2": 515 },
-            { "x1": 1364, "y1": 516, "x2": 1364, "y2": 558 }, { "x1": 1365, "y1": 558, "x2": 1248, "y2": 562 },
-            { "x1": 1251, "y1": 567, "x2": 1246, "y2": 522 }, { "x1": 1244, "y1": 518, "x2": 1203, "y2": 515 },
-            { "x1": 1200, "y1": 515, "x2": 1196, "y2": 556 }, { "x1": 1198, "y1": 556, "x2": 1118, "y2": 548 },
-            { "x1": 1123, "y1": 549, "x2": 1118, "y2": 471 }, { "x1": 1344, "y1": 619, "x2": 1259, "y2": 620 },
-            { "x1": 1260, "y1": 621, "x2": 1259, "y2": 648 }, { "x1": 1259, "y1": 652, "x2": 1343, "y2": 645 },
-            { "x1": 1343, "y1": 649, "x2": 1345, "y2": 630 }, { "x1": 1372, "y1": 398, "x2": 1310, "y2": 462 },
-            { "x1": 1315, "y1": 466, "x2": 1429, "y2": 462 }, { "x1": 1374, "y1": 397, "x2": 1472, "y2": 392 },
-            { "x1": 1470, "y1": 392, "x2": 1473, "y2": 272 }, { "x1": 1475, "y1": 275, "x2": 1456, "y2": 261 },
-            { "x1": 1457, "y1": 264, "x2": 1333, "y2": 273 }, { "x1": 1438, "y1": 464, "x2": 1435, "y2": 453 },
-            { "x1": 1433, "y1": 449, "x2": 1566, "y2": 448 }, { "x1": 1568, "y1": 449, "x2": 1572, "y2": 529 },
-            { "x1": 1569, "y1": 528, "x2": 1480, "y2": 528 }, { "x1": 1477, "y1": 532, "x2": 1471, "y2": 673 },
-            { "x1": 536,  "y1": 570, "x2": 1630, "y2": 565 }, { "x1": 1629, "y1": 572, "x2": 1627, "y2": 512 },
-            { "x1": 1627, "y1": 510, "x2": 1747, "y2": 507 }, { "x1": 1744, "y1": 510, "x2": 1747, "y2": 554 },
-            { "x1": 1745, "y1": 558, "x2": 1826, "y2": 562 }, { "x1": 1891, "y1": 516, "x2": 1834, "y2": 561 },
-            { "x1": 1893, "y1": 514, "x2": 1894, "y2": 416 }, { "x1": 1896, "y1": 435, "x2": 1829, "y2": 373 },
-            { "x1": 1826, "y1": 376, "x2": 1751, "y2": 376 }, { "x1": 1747, "y1": 370, "x2": 1742, "y2": 445 },
-            { "x1": 1742, "y1": 445, "x2": 1631, "y2": 451 }, { "x1": 1626, "y1": 455, "x2": 1624, "y2": 379 },
-            { "x1": 1621, "y1": 405, "x2": 1539, "y2": 398 }, { "x1": 1534, "y1": 404, "x2": 1533, "y2": 256 },
-            { "x1": 1535, "y1": 251, "x2": 1542, "y2": 215 }, { "x1": 1546, "y1": 213, "x2": 1586, "y2": 222 },
-            { "x1": 1589, "y1": 220, "x2": 1586, "y2": 184 }, { "x1": 1586, "y1": 186, "x2": 1493, "y2": 104 },
-            { "x1": 1497, "y1": 102, "x2": 1401, "y2": 101 }, { "x1": 1453, "y1": 110, "x2": 1451, "y2": 172 },
-            { "x1": 1452, "y1": 177, "x2": 1433, "y2": 209 }, { "x1": 1431, "y1": 211, "x2": 1326, "y2": 211 }
+            { "x1": 1059, "y1": 644, "x2": 1059, "y2": 475 }, { "x1": 62,   "y1": 930, "x2": 34,   "y2": 916 }
         ];
 
-        const pivotX = 1062;
-        const pivotY = 354;
+        // Tische (Kollisionsobjekte)
+        const pivotX = 997, pivotY = 272;
         const finalTables = [
-            { cx: pivotX + (917 - pivotX) * 0.71 + 20, cy: pivotY + (218 - pivotY) * 0.77 - 110, radius: 52 * 0.77 },
-            { cx: pivotX + (1208 - pivotX) * 0.71 + 20, cy: pivotY + (218 - pivotY) * 0.77 - 110, radius: 52 * 0.77 },
-            { cx: pivotX + (1062 - pivotX) * 0.71 + 20, cy: pivotY + (354 - pivotY) * 0.77 - 110, radius: 52 * 0.77 },
-            { cx: pivotX + (917 - pivotX) * 0.71 + 20, cy: pivotY + (491 - pivotY) * 0.77 - 110, radius: 52 * 0.77 },
-            { cx: pivotX + (1208 - pivotX) * 0.71 + 20, cy: pivotY + (491 - pivotY) * 0.77 - 110, radius: 52 * 0.77 }
+            { cx: pivotX - (1062 - pivotX) * 0.71 - 20, cy: pivotY + (354 - pivotY) * 0.77 - 110, rx: 52 * 0.82, ry: 80 * 0.82 },
+            { cx: pivotX,                               cy: pivotY,                              rx: 57,        ry: 89        },
+            { cx: pivotX + (1062 - pivotX) * 0.71 + 20, cy: pivotY + (354 - pivotY) * 0.77 - 110, rx: 52 * 0.82, ry: 80 * 0.82 }
         ];
 
-        const textures = {};
-        const sources = {
-            map: 'assets/Map.png',
-            player: 'assets/IMG_0964.webp',
-            useBtn: 'assets/use.webp',
-            useSecBtn: 'assets/use_sec.webp',
-            engBtn: 'assets/eng.webp'
+        // Startposition angepasst auf einen sicheren, freien Bereich in der Cafeteria
+        let player = {
+            x: 1060,
+            y: 150,
+            width: 40,
+            height: 40,
+            speed: 3.5,
+            facingRight: true
         };
 
-        let loadedImages = 0;
-        const totalImages = Object.keys(sources).length;
-        for (let key in sources) {
-            textures[key] = new Image();
-            textures[key].src = sources[key];
-            textures[key].onload = () => {
-                loadedImages++;
-                if (loadedImages === totalImages) {
-                    updateButtonTexture(false);
-                    engineerBtn.style.backgroundImage = `url('${sources.engBtn}')`;
-                }
-            };
-        }
-
-        let player = { x: 1060, y: 260, radius: 10, width: 21, height: 27, speed: 4.5, vx: 0, vy: 0, facingRight: true };
         let camera = { x: 0, y: 0 };
+        let joystick = { active: false, startX: 0, startY: 0, curX: 0, curY: 0, moveX: 0, moveY: 0 };
+
+        let textures = { map: new Image(), player: new Image() };
+        textures.map.src = 'assets/Map.png';
+        textures.player.src = 'assets/Player.png';
+
+        let uiImages = { use: new Image(), vent: new Image(), report: new Image(), arrowLeft: new Image(), arrowRight: new Image() };
+        uiImages.use.src = 'assets/Use.png';
+        uiImages.vent.src = 'assets/Vent.png';
+        uiImages.report.src = 'assets/Report.png';
+        uiImages.arrowLeft.src = 'assets/ArrowLeft.png';
+        uiImages.arrowRight.src = 'assets/ArrowRight.png';
+
+        let activeInteractObject = null;
+        let activeInteractType = null; 
         let isViewingSecurity = false;
-        let nearSecurity = false;
-
-        const joystickZone = document.getElementById('joystick-zone');
-        const joystickKnob = document.getElementById('joystick-knob');
-        const actionBtn = document.getElementById('action-btn');
-        const engineerBtn = document.getElementById('engineer-btn');
-        const roleOverlay = document.getElementById('role-selection-overlay');
-
-        let joystickData = { dragging: false, startX: 0, startY: 0, moveX: 0, moveY: 0 };
 
         function resizeCanvas() {
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
+            if (gameActive) updateCamera();
         }
         window.addEventListener('resize', resizeCanvas);
-        resizeCanvas();
+        window.addEventListener('load', resizeCanvas);
 
         function selectRole(role) {
             playerRole = role;
-            roleOverlay.style.display = 'none';
+            document.getElementById('role-selection-overlay').style.display = 'none';
             gameActive = true;
-            if (playerRole === 'engineer') {
-                engineerBtn.style.display = 'block';
-            }
+            resizeCanvas();
+            requestAnimationFrame(gameLoop);
         }
 
+        // Joystick-Steuerung
+        const joystickZone = document.getElementById('joystick-zone');
+        const joystickKnob = document.getElementById('joystick-knob');
+
         joystickZone.addEventListener('touchstart', (e) => {
-            if (!gameActive) return;
+            if (isViewingSecurity) return;
             const touch = e.touches[0];
-            const rect = joystickZone.getBoundingClientRect();
-            joystickData.dragging = true;
-            joystickData.startX = rect.left + rect.width / 2;
-            joystickData.startY = rect.top + rect.height / 2;
+            joystick.active = true;
+            joystick.startX = touch.clientX;
+            joystick.startY = touch.clientY;
+            joystick.curX = touch.clientX;
+            joystick.curY = touch.clientY;
         });
 
         joystickZone.addEventListener('touchmove', (e) => {
-            if (!joystickData.dragging) return;
+            if (!joystick.active) return;
             const touch = e.touches[0];
-            let dx = touch.clientX - joystickData.startX;
-            let dy = touch.clientY - joystickData.startY;
+            joystick.curX = touch.clientX;
+            joystick.curY = touch.clientY;
+
+            let dx = joystick.curX - joystick.startX;
+            let dy = joystick.curY - joystick.startY;
             const dist = Math.sqrt(dx*dx + dy*dy);
             const maxDist = 40;
 
@@ -376,344 +306,374 @@
             }
 
             joystickKnob.style.transform = `translate(${dx}px, ${dy}px)`;
-            joystickData.moveX = dx / maxDist;
-            joystickData.moveY = dy / maxDist;
+            joystick.moveX = dx / maxDist;
+            joystick.moveY = dy / maxDist;
         });
 
         function resetJoystick() {
-            joystickData.dragging = false;
+            joystick.active = false;
+            joystick.moveX = 0;
+            joystick.moveY = 0;
             joystickKnob.style.transform = 'translate(0px, 0px)';
-            joystickData.moveX = 0;
-            joystickData.moveY = 0;
         }
         joystickZone.addEventListener('touchend', resetJoystick);
         joystickZone.addEventListener('touchcancel', resetJoystick);
 
+        // Interaktions-Buttons
+        const actionBtn = document.getElementById('action-btn');
+        const engineerBtn = document.getElementById('engineer-btn');
+
         actionBtn.addEventListener('touchstart', (e) => {
             e.preventDefault();
-            if (nearSecurity) {
-                isViewingSecurity = !isViewingSecurity;
-                updateButtonTexture(nearSecurity);
-            }
+            handlePrimaryInteraction();
         });
 
         engineerBtn.addEventListener('touchstart', (e) => {
             e.preventDefault();
-            if (playerRole !== 'engineer') return;
-            handleEngineerAction();
+            handleEngineerInteraction();
         });
 
-        function handleEngineerAction() {
+        function handlePrimaryInteraction() {
+            if (isViewingSecurity) {
+                isViewingSecurity = false;
+                return;
+            }
+            if (activeInteractObject && activeInteractType === 'security') {
+                isViewingSecurity = true;
+                resetJoystick();
+            }
+        }
+
+        function handleEngineerInteraction() {
+            if (playerRole !== 'engineer') return;
+
             if (isVenting) {
                 isVenting = false;
                 player.x = currentVentNode.x;
-                player.y = currentVentNode.y + 15;
+                player.y = currentVentNode.y;
                 currentVentNode = null;
-                engineerBtn.style.opacity = "0.4";
+            } else {
+                let closeVent = null;
+                let minDist = 60;
+                vents.forEach(v => {
+                    let d = Math.sqrt((player.x - v.x)**2 + (player.y - v.y)**2);
+                    if (d < minDist) { minDist = d; closeVent = v; }
+                });
+                if (closeVent) {
+                    isVenting = true;
+                    currentVentNode = closeVent;
+                }
+            }
+        }
+
+        function checkInteractions() {
+            if (isVenting) {
+                activeInteractObject = null;
+                activeInteractType = null;
+                return;
+            }
+            let sec = gameConfig.securityScreen;
+            let dSec = Math.sqrt((player.x - sec.cx)**2 + (player.y - sec.cy)**2);
+            if (dSec < sec.interactRange) {
+                activeInteractObject = sec;
+                activeInteractType = 'security';
+                return;
+            }
+            activeInteractObject = null;
+            activeInteractType = null;
+        }
+
+        function updateInteractButtonsUI() {
+            if (isViewingSecurity) {
+                actionBtn.style.backgroundImage = `url(${uiImages.arrowLeft.src})`;
+                actionBtn.style.opacity = "1";
+                engineerBtn.style.display = "none";
                 return;
             }
 
-            let closest = null;
-            let minDist = 60; 
-            vents.forEach(v => {
-                let d = Math.getDistance(player.x, player.y, v.x, v.y);
-                if (d < minDist) { closest = v; minDist = d; }
-            });
-
-            if (closest) {
-                isVenting = true;
-                currentVentNode = closest;
-                player.x = closest.x;
-                player.y = closest.y;
-                engineerBtn.style.opacity = "1.0";
-            }
-        }
-
-        function getVentsInSameGroup(groupId) {
-            return vents.filter(v => v.id === groupId);
-        }
-
-        function createVentNavigationButtons() {
-            activeVentButtons = [];
-            if (!isVenting || !currentVentNode) return;
-            let siblings = getVentsInSameGroup(currentVentNode.id);
-            siblings.forEach(s => {
-                if (s.x === currentVentNode.x && s.y === currentVentNode.y) return;
-                let angle = Math.atan2(s.y - currentVentNode.y, s.x - currentVentNode.x);
-                activeVentButtons.push({ angle: angle, target: s });
-            });
-        }
-
-        Math.getDistance = function(x1, y1, x2, y2) {
-            return Math.sqrt((x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1));
-        };
-
-        function updateButtonTexture(isActive) {
-            if (isActive) {
-                actionBtn.style.backgroundImage = `url('${sources.useSecBtn}')`;
-                actionBtn.style.opacity = "1.0";
+            if (activeInteractType === 'security') {
+                actionBtn.style.backgroundImage = `url(${uiImages.use.src})`;
+                actionBtn.style.opacity = "1";
             } else {
-                actionBtn.style.backgroundImage = `url('${sources.useBtn}')`;
+                actionBtn.style.backgroundImage = `url(${uiImages.use.src})`;
                 actionBtn.style.opacity = "0.4";
             }
+
+            if (playerRole === 'engineer') {
+                engineerBtn.style.display = "block";
+                let nearVent = false;
+                vents.forEach(v => {
+                    let d = Math.sqrt((player.x - v.x)**2 + (player.y - v.y)**2);
+                    if (d < 60) nearVent = true;
+                });
+                if (nearVent || isVenting) {
+                    engineerBtn.style.opacity = "1";
+                } else {
+                    engineerBtn.style.opacity = "0.4";
+                }
+            } else {
+                engineerBtn.style.display = "none";
+            }
         }
 
-        function checkLineCircleCollision(x1, y1, x2, y2, cx, cy, r) {
-            let abx = x2 - x1;
-            let aby = y2 - y1;
-            let acx = cx - x1;
-            let acy = cy - y1;
-            let ab_len_sq = abx*abx + aby*aby;
-            if (ab_len_sq === 0) return Math.sqrt(acx*acx + acy*acy) < r;
-            let t = (acx*abx + acy*aby) / ab_len_sq;
-            t = Math.max(0, Math.min(1, t));
-            let closestX = x1 + t * abx;
-            let closestY = y1 + t * aby;
-            let distSq = (cx - closestX)*(cx - closestX) + (cy - closestY)*(cy - closestY);
-            return distSq < (r * r);
+        function getVentNeighbors(vent) {
+            return vents.filter(v => v.id === vent.id && v !== vent);
         }
 
-        function checkCollision(cx, cy, r) {
-            if (cx - r < 0 || cx + r > mapWidth || cy - r < 0 || cy + r > mapHeight) return true;
+        function updateVentNavigationMovement() {
+            if (!isVenting || !currentVentNode) return;
+            let neighbors = getVentNeighbors(currentVentNode);
+            if (neighbors.length === 0) return;
+
+            let mX = joystick.moveX;
+            let mY = joystick.moveY;
+            let mag = Math.sqrt(mX*mX + mY*mY);
+            if (mag > 0.5) {
+                let dirX = mX / mag;
+                let dirY = mY / mag;
+                let bestNode = null;
+                let maxDot = 0.7; 
+
+                neighbors.forEach(n => {
+                    let nX = n.x - currentVentNode.x;
+                    let nY = n.y - currentVentNode.y;
+                    let nMag = Math.sqrt(nX*nX + nY*nY);
+                    if (nMag > 0) {
+                        let dot = (nX/nMag)*dirX + (nY/nMag)*dirY;
+                        if (dot > maxDot) { maxDot = dot; bestNode = n; }
+                    }
+                });
+                if (bestNode) {
+                    currentVentNode = bestNode;
+                    resetJoystick();
+                }
+            }
+        }
+
+        // Kollisionsprüfung für Wände und Ellipsen-Tische
+        function isPointInWall(x, y) {
             for (let i = 0; i < wallLines.length; i++) {
                 let w = wallLines[i];
-                if (checkLineCircleCollision(w.x1, w.y1, w.x2, w.y2, cx, cy, r + wallThickness / 2)) {
-                    return true;
-                }
+                let dist = pDistance(x, y, w.x1, w.y1, w.x2, w.y2);
+                if (dist < wallThickness) return true;
             }
             for (let i = 0; i < finalTables.length; i++) {
                 let t = finalTables[i];
-                let d = Math.getDistance(cx, cy, t.cx, t.cy);
-                if (d < r + t.radius) return true;
+                let dx = x - t.cx;
+                let dy = y - t.cy;
+                if ((dx*dx)/(t.rx*t.rx) + (dy*dy)/(t.ry*t.ry) <= 1) return true;
             }
             return false;
         }
 
-        function update() {
-            if (!gameActive) return;
+        function pDistance(x, y, x1, y1, x2, y2) {
+            let A = x - x1; let B = y - y1; let C = x2 - x1; let D = y2 - y1;
+            let dot = A * C + B * D; let len_sq = C * C + D * D;
+            let param = -1;
+            if (len_sq !== 0) param = dot / len_sq;
+            let xx, yy;
+            if (param < 0) { xx = x1; yy = y1; }
+            else if (param > 1) { xx = x2; yy = y2; }
+            else { xx = x1 + param * C; yy = y1 + param * D; }
+            let dx = x - xx; let dy = y - yy;
+            return Math.sqrt(dx * dx + dy * dy);
+        }
 
-            if (!isVenting) {
-                if (joystickData.dragging && !isViewingSecurity) {
-                    let moveSpeed = player.speed;
-                    let nvx = joystickData.moveX * moveSpeed;
-                    let nvy = joystickData.moveY * moveSpeed;
+        function movePlayer() {
+            if (!joystick.active || isVenting || isViewingSecurity) return;
 
-                    if (nvx !== 0) player.facingRight = nvx > 0;
+            let dx = joystick.moveX * player.speed;
+            let dy = joystick.moveY * player.speed;
 
-                    let steps = 5;
-                    let stepX = nvx / steps;
-                    let stepY = nvy / steps;
+            if (dx > 0) player.facingRight = true;
+            if (dx < 0) player.facingRight = false;
 
-                    for (let s = 0; s < steps; s++) {
-                        if (!checkCollision(player.x + stepX, player.y, player.radius)) {
-                            player.x += stepX;
-                        }
-                        if (!checkCollision(player.x, player.y + stepY, player.radius)) {
-                            player.y += stepY;
-                        }
-                    }
-                }
+            let newX = player.x + dx;
+            let newY = player.y + dy;
 
-                let sec = gameConfig.securityScreen;
-                let dSec = Math.getDistance(player.x, player.y, sec.cx, sec.cy);
-                let wasNear = nearSecurity;
-                nearSecurity = (dSec < sec.interactRange);
-                if (nearSecurity !== wasNear && !isViewingSecurity) {
-                    updateButtonTexture(nearSecurity);
-                }
-                if (!nearSecurity && isViewingSecurity) {
-                    isViewingSecurity = false;
-                    updateButtonTexture(false);
-                }
-
-                if (playerRole === 'engineer') {
-                    let canVent = false;
-                    vents.forEach(v => {
-                        if (Math.getDistance(player.x, player.y, v.x, v.y) < 60) canVent = true;
-                    });
-                    engineerBtn.style.opacity = canVent ? "1.0" : "0.4";
-                }
+            // X-Richtung bewegen mit Slide-Effekt an Wänden
+            if (!isPointInWall(newX, player.y)) {
+                player.x = newX;
             } else {
-                createVentNavigationButtons();
-                if (joystickData.dragging) {
-                    let mx = joystickData.moveX;
-                    let my = joystickData.moveY;
-                    let angle = Math.atan2(my, mx);
-                    let mag = Math.sqrt(mx*mx + my*my);
-                    
-                    if (mag > 0.5) {
-                        let bestBtn = null;
-                        let bestDiff = 0.6; 
-                        activeVentButtons.forEach(b => {
-                            let diff = Math.abs(b.angle - angle);
-                            if (diff > Math.PI) diff = Math.PI * 2 - diff;
-                            if (diff < bestDiff) { bestDiff = diff; bestBtn = b; }
-                        });
-                        if (bestBtn) {
-                            currentVentNode = bestBtn.target;
-                            player.x = currentVentNode.x;
-                            player.y = currentVentNode.y;
-                            resetJoystick();
-                        }
-                    }
+                let step = dx > 0 ? 1 : -1;
+                while (Math.abs(step) <= Math.abs(dx)) {
+                    if (!isPointInWall(player.x + step, player.y)) player.x += step;
+                    else break;
+                    step += dx > 0 ? 1 : -1;
                 }
             }
 
-            camera.x = player.x - canvas.width / 2;
-            camera.y = player.y - canvas.height / 2;
+            // Y-Richtung bewegen
+            if (!isPointInWall(player.x, newY)) {
+                player.y = newY;
+            } else {
+                let step = dy > 0 ? 1 : -1;
+                while (Math.abs(step) <= Math.abs(dy)) {
+                    if (!isPointInWall(player.x, player.y + step)) player.y += step;
+                    else break;
+                    step += dy > 0 ? 1 : -1;
+                }
+            }
 
-            camera.x = Math.max(0, Math.min(mapWidth - canvas.width, camera.x));
-            camera.y = Math.max(0, Math.min(mapHeight - canvas.height, camera.y));
+            // Mapgrenzen einhalten
+            if (player.x < 0) player.x = 0; if (player.x > mapWidth) player.x = mapWidth;
+            if (player.y < 0) player.y = 0; if (player.y > mapHeight) player.y = mapHeight;
+        }
+
+        function updateCamera() {
+            if (isViewingSecurity) return; 
+            if (isVenting && currentVentNode) {
+                camera.x = currentVentNode.x - canvas.width / 2;
+                camera.y = currentVentNode.y - canvas.height / 2;
+            } else {
+                camera.x = player.x - canvas.width / 2;
+                camera.y = player.y - canvas.height / 2;
+            }
+            if (camera.x < 0) camera.x = 0; if (camera.x > mapWidth - canvas.width) camera.x = mapWidth - canvas.width;
+            if (camera.y < 0) camera.y = 0; if (camera.y > mapHeight - canvas.height) camera.y = mapHeight - canvas.height;
+            if (mapWidth < canvas.width) camera.x = (mapWidth - canvas.width) / 2;
+            if (mapHeight < canvas.height) camera.y = (mapHeight - canvas.height) / 2;
+        }
+
+        function drawVents() {
+            // debugMode ist false, daher wird hier im Spiel nichts mehr gezeichnet.
+            // Falls du sie im Dev-Modus sehen willst, setze oben debugMode = true;
+            if (debugMode) {
+                vents.forEach(vent => {
+                    ctx.beginPath();
+                    ctx.arc(vent.x - camera.x, vent.y - camera.y, vent.radius, 0, Math.PI * 2);
+                    ctx.strokeStyle = 'rgba(168, 85, 247, 0.6)';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                    ctx.fillStyle = '#a855f7';
+                    ctx.font = '10px monospace';
+                    ctx.fillText(`ID: ${vent.id}`, vent.x - camera.x - 12, vent.y - camera.y - vent.radius - 4);
+                });
+            }
+        }
+
+        function drawSecurityInteractZone() {
+            let sec = gameConfig.securityScreen;
+            if (debugMode) {
+                ctx.beginPath();
+                ctx.arc(sec.cx - camera.x, sec.cy - camera.y, sec.radius, 0, Math.PI * 2);
+                ctx.strokeStyle = 'rgba(59, 130, 246, 0.5)';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            }
         }
 
         function isPointInVision(px, py, cam) {
-            let d = Math.getDistance(cam.x, cam.y, px, py);
-            if (d > cam.range) return false;
-            let angleToPlayer = Math.atan2(py - cam.y, px - cam.x);
-            let diff = Math.abs(angleToPlayer - cam.angle);
-            if (diff > Math.PI) diff = Math.PI * 2 - diff;
-            return diff < cam.fov / 2;
+            let dx = px - cam.x; let dy = py - cam.y;
+            let dist = Math.sqrt(dx*dx + dy*dy);
+            if (dist > cam.range) return false;
+            let angleToPlayer = Math.atan2(dy, dx);
+            let diff = angleToPlayer - cam.angle;
+            while (diff < -Math.PI) diff += Math.PI * 2;
+            while (diff > Math.PI) diff -= Math.PI * 2;
+            return Math.abs(diff) <= cam.fov / 2;
         }
 
         function drawCameraVisionSquare(cam) {
-            ctx.fillStyle = 'rgba(239, 68, 68, 0.07)';
-            ctx.beginPath();
-            ctx.moveTo(cam.x, cam.y);
-            ctx.arc(cam.x, cam.y, cam.range, cam.angle - cam.fov/2, cam.angle + cam.fov/2);
-            ctx.closePath();
-            ctx.fill();
-            
-            ctx.save();
-            ctx.translate(cam.x, cam.y);
-            ctx.rotate(cam.angle);
-            ctx.fillStyle = '#ef4444';
-            ctx.fillRect(-6, -6, 12, 12);
-            ctx.fillStyle = '#ffffff';
-            ctx.fillRect(4, -2, 4, 4);
-            ctx.restore();
+            ctx.beginPath(); ctx.moveTo(cam.x - camera.x, cam.y - camera.y);
+            let leftAngle = cam.angle - cam.fov / 2;
+            let rightAngle = cam.angle + cam.fov / 2;
+            ctx.lineTo(cam.x - camera.x + Math.cos(leftAngle)*cam.range, cam.y - camera.y + Math.sin(leftAngle)*cam.range);
+            ctx.arc(cam.x - camera.x, cam.y - camera.y, cam.range, leftAngle, rightAngle);
+            ctx.lineTo(cam.x - camera.x, cam.y - camera.y);
+            ctx.fillStyle = 'rgba(0, 255, 200, 0.08)'; ctx.fill();
+            ctx.strokeStyle = 'rgba(0, 255, 200, 0.3)'; ctx.lineWidth = 1; ctx.stroke();
         }
 
-        function drawGame() {
+        function drawSecurityView() {
+            ctx.fillStyle = '#050508'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+            let cams = gameConfig.cameras;
+            let gap = 15;
+            let topBarHeight = 50;
+            let w = (canvas.width - gap * 3) / 2;
+            let h = (canvas.height - topBarHeight - gap * 3) / 2;
+
+            ctx.fillStyle = '#111116'; ctx.fillRect(0, 0, canvas.width, topBarHeight);
+            ctx.fillStyle = '#ef4444'; ctx.font = 'bold 16px monospace'; ctx.fillText("LIVE SECURITY MONITOR", 20, 32);
+
+            cams.forEach((cam, idx) => {
+                let col = idx % 2; let row = Math.floor(idx / 2);
+                let posX = gap + col * (w + gap); let posY = topBarHeight + gap + row * (h + gap);
+                ctx.save();
+                ctx.beginPath(); ctx.rect(posX, posY, w, h); ctx.clip();
+                ctx.fillStyle = '#0b0b0e'; ctx.fillRect(posX, posY, w, h);
+
+                ctx.save();
+                ctx.translate(posX + w / 2 - cam.x, posY + h / 2 - cam.y);
+                if (textures.map && textures.map.complete) ctx.drawImage(textures.map, 0, 0, mapWidth, mapHeight);
+                drawCameraVisionSquare(cam);
+                
+                if (!isVenting && isPointInVision(player.x, player.y, cam)) {
+                    ctx.save(); ctx.translate(player.x, player.y); if (!player.facingRight) ctx.scale(-1, 1);
+                    if (textures.player && textures.player.complete) ctx.drawImage(textures.player, -player.width/2, -player.height/2, player.width, player.height);
+                    ctx.restore();
+                }
+                ctx.restore();
+                ctx.strokeStyle = '#3b82f6'; ctx.lineWidth = 3; ctx.strokeRect(pos.x, pos.y, w, h); // Hinweis: pos.x / pos.y Definition korrigiert im render-loop unten
+                
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.6)'; ctx.fillRect(posX + 10, posY + 10, 185, 30);
+                ctx.fillStyle = '#00ffcc'; ctx.font = 'bold 11px monospace'; ctx.fillText(`CAM: ${cam.id}`, posX + 15, posY + 28);
+                ctx.restore();
+            });
+        }
+
+        function gameLoop() {
+            if (!gameActive) return;
+
+            // Updates
+            movePlayer();
+            updateVentNavigationMovement();
+            checkInteractions();
+            updateCamera();
+            updateInteractButtonsUI();
+
+            // Zeichnen
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            if (!isViewingSecurity) {
+            if (isViewingSecurity) {
+                drawSecurityView();
+            } else {
+                // Spielwelt zeichnen
                 ctx.save();
                 ctx.translate(-camera.x, -camera.y);
 
                 if (textures.map && textures.map.complete) {
                     ctx.drawImage(textures.map, 0, 0, mapWidth, mapHeight);
                 } else {
-                    ctx.fillStyle = '#1c1c24';
-                    ctx.fillRect(0, 0, mapWidth, mapHeight);
+                    ctx.fillStyle = '#1e1e24'; ctx.fillRect(0, 0, mapWidth, mapHeight);
                 }
 
-                // Vents zeichnen
-                vents.forEach(v => {
-                    ctx.fillStyle = 'rgba(75, 85, 99, 0.8)';
-                    ctx.strokeStyle = '#374151';
-                    ctx.lineWidth = 3;
-                    ctx.beginPath();
-                    ctx.arc(v.x, v.y, v.radius, 0, Math.PI * 2);
-                    ctx.fill();
-                    ctx.stroke();
+                drawSecurityInteractZone();
+                drawVents();
 
-                    ctx.fillStyle = '#111827';
-                    ctx.fillRect(v.x - v.radius * 0.6, v.y - v.radius * 0.15, v.radius * 1.2, v.radius * 0.3);
-                });
-
+                // Spieler zeichnen, außer er befindet sich im Vent
                 if (!isVenting) {
                     ctx.save();
                     ctx.translate(player.x, player.y);
                     if (!player.facingRight) ctx.scale(-1, 1);
-
                     if (textures.player && textures.player.complete) {
-                        ctx.drawImage(textures.player, -player.width/2, -player.height/2, player.width, player.height);
+                        ctx.drawImage(textures.player, -player.width / 2, -player.height / 2, player.width, player.height);
                     } else {
-                        ctx.fillStyle = '#ef4444';
-                        ctx.beginPath();
-                        ctx.arc(0, 0, player.radius, 0, Math.PI*2);
-                        ctx.fill();
+                        ctx.fillStyle = '#ef4444'; ctx.fillRect(-player.width / 2, -player.height / 2, player.width, player.height);
                     }
                     ctx.restore();
+                } else if (isVenting && currentVentNode) {
+                    // Visueller Indikator im Vent im Dev-Modus
+                    if (debugMode) {
+                        ctx.fillStyle = 'rgba(168, 85, 247, 0.4)';
+                        ctx.beginPath(); ctx.arc(currentVentNode.x, currentVentNode.y, player.width / 2, 0, Math.PI * 2); ctx.fill();
+                    }
                 }
-
-                if (isVenting && activeVentButtons.length > 0) {
-                    activeVentButtons.forEach(b => {
-                        let arrowX = currentVentNode.x + Math.cos(b.angle) * 55;
-                        let arrowY = currentVentNode.y + Math.sin(b.angle) * 55;
-                        ctx.fillStyle = '#a855f7';
-                        ctx.beginPath();
-                        ctx.arc(arrowX, arrowY, 12, 0, Math.PI * 2);
-                        ctx.fill();
-                        
-                        ctx.strokeStyle = '#fff';
-                        ctx.lineWidth = 2;
-                        ctx.beginPath();
-                        ctx.moveTo(arrowX - Math.cos(b.angle)*4, arrowY - Math.sin(b.angle)*4);
-                        ctx.lineTo(arrowX + Math.cos(b.angle)*5, arrowY + Math.sin(b.angle)*5);
-                        ctx.stroke();
-                    });
-                }
-
                 ctx.restore();
-            } else {
-                let count = gameConfig.cameras.length;
-                let cols = 2, rows = 2;
-                let w = canvas.width / cols;
-                let h = canvas.height / rows;
-
-                gameConfig.cameras.forEach((cam, index) => {
-                    let r = Math.floor(index / cols);
-                    let c = index % cols;
-                    let pos = { x: c * w, y: r * h };
-
-                    ctx.save();
-                    ctx.beginPath();
-                    ctx.rect(pos.x, pos.y, w, h);
-                    ctx.clip();
-
-                    ctx.translate(pos.x + w / 2 - cam.x, pos.y + h / 2 - cam.y);
-                    if (textures.map && textures.map.complete) ctx.drawImage(textures.map, 0, 0, mapWidth, mapHeight);
-                    drawCameraVisionSquare(cam);
-
-                    if (!isVenting && isPointInVision(player.x, player.y, cam)) {
-                        ctx.save();
-                        ctx.translate(player.x, player.y);
-                        if (!player.facingRight) ctx.scale(-1, 1);
-                        if (textures.player && textures.player.complete) {
-                            ctx.drawImage(textures.player, -player.width/2, -player.height/2, player.width, player.height);
-                        }
-                        ctx.restore();
-                    }
-                    ctx.restore();
-
-                    ctx.strokeStyle = '#3b82f6';
-                    ctx.lineWidth = 3;
-                    ctx.strokeRect(pos.x, pos.y, w, h);
-
-                    ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
-                    ctx.fillRect(pos.x + 10, pos.y + 10, 185, 30);
-                    ctx.fillStyle = '#00ffcc';
-                    ctx.font = 'bold 11px monospace';
-                    ctx.fillText(`CAM: ${cam.id}`, pos.x + 15, pos.y + 28);
-                });
-
-                ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-                ctx.fillRect(canvas.width / 2 - 150, canvas.height - 50, 300, 40);
-                ctx.fillStyle = '#ef4444';
-                ctx.font = 'bold 14px monospace';
-                ctx.textAlign = 'center';
-                ctx.fillText("SECURITY MONITOR - TAP ACTION TO EXIT", canvas.width / 2, canvas.height - 25);
-                ctx.textAlign = 'left';
             }
-        }
 
-        function loop() {
-            update();
-            drawGame();
-            requestAnimationFrame(loop);
+            requestAnimationFrame(gameLoop);
         }
-        requestAnimationFrame(loop);
     </script>
 </body>
 </html>
